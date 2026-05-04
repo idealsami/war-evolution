@@ -24,12 +24,13 @@ body { background:#080810; color:#ddd; font-family:'Segoe UI',sans-serif; overfl
 .hp-fill.red { background:linear-gradient(90deg,#da3633,#f85149); }
 .hp-txt { font-size:11px; min-width:50px; }
 
-#canvas-wrap { flex:1; position:relative; }
+#canvas-wrap { flex:1; position:relative; min-height:0; }
 canvas { display:block; width:100%; height:100%; }
 
 #controls {
   background:linear-gradient(135deg,#0d1117,#161b22);
-  border-top:2px solid #21262d; padding:6px 10px; flex-shrink:0;
+  border-top:2px solid #21262d; padding:8px 10px 10px; flex-shrink:0;
+  max-height: 45vh; overflow-y: auto;
 }
 #unit-btns { display:flex; gap:5px; flex-wrap:wrap; justify-content:center; }
 .unit-btn {
@@ -43,9 +44,9 @@ canvas { display:block; width:100%; height:100%; }
 .unit-btn.dis { opacity:0.35; cursor:not-allowed; pointer-events:none; }
 .unit-btn .desc { color:#8b949e; font-size:9px; }
 
-#upgrade-bar { display:flex; gap:6px; justify-content:center; margin-top:4px; }
+#upgrade-bar { display:flex; gap:6px; justify-content:center; margin-top:6px; flex-wrap:wrap; }
 .u-btn {
-  padding:4px 12px; border:1px solid #da3633; border-radius:6px;
+  padding:5px 14px; border:1px solid #da3633; border-radius:6px;
   background:linear-gradient(135deg,#1a0a0a,#0d1117); color:#f85149;
   cursor:pointer; font-size:11px; font-weight:bold;
 }
@@ -76,6 +77,11 @@ canvas { display:block; width:100%; height:100%; }
 
 #how-to {
   position:absolute; bottom:10px; right:10px; font-size:10px; color:#30363d; z-index:5;
+}
+
+#spawn-hint {
+  position:absolute; bottom:10px; left:10px; font-size:10px; color:#3fb950; z-index:5;
+  opacity:0.7;
 }
 </style>
 </head>
@@ -108,6 +114,7 @@ canvas { display:block; width:100%; height:100%; }
     <button onclick="restart()">再来一局</button>
   </div>
   <div id="how-to">1-4出兵 | Q升级时代 | W攻击强化 | E生命强化 | R经济强化</div>
+  <div id="spawn-hint">🖱️ 点击左侧区域出兵</div>
 </div>
 
 <div id="controls">
@@ -127,8 +134,17 @@ const cv = document.getElementById('game');
 const cx = cv.getContext('2d');
 const wrap = document.getElementById('canvas-wrap');
 let W, H, GY;
-function resize(){ W=cv.width=wrap.clientWidth; H=cv.height=wrap.clientHeight; GY=H-50; }
-resize(); window.addEventListener('resize',resize);
+function resize(){
+  W = cv.width = wrap.clientWidth;
+  H = cv.height = wrap.clientHeight;
+  GY = H - 50;
+  // 重新计算基地位置，保持一致
+  BLUE_BASE_X = 90;
+  RED_BASE_X = W - 90;
+}
+let BLUE_BASE_X = 90, RED_BASE_X;
+resize();
+window.addEventListener('resize', resize);
 
 // ============ ERAS (8 eras, 3-4 units each) ============
 const ERAS=[
@@ -198,9 +214,10 @@ function init(){
   units:[], proj:[], parts:[],
   atkM:1, hpM:1, goldM:1,
   atkU:0, hpU:0, goldU:0,
-  aiT:0, aiInt:600,  // AI spawn interval (slower)
+  aiT:0, aiInt:600,
   over:false, pause:false, tick:0, speed:1,
   gameTime:0,
+  selectedUnit:0,  // 当前选中的兵种索引
  };
 }
 init();
@@ -221,17 +238,22 @@ function spawnBlue(id){
  const t=era.units.find(u=>u.id===id);
  if(!t||S.gold<t.cost) return;
  S.gold-=t.cost;
- const u=mkUnit(t,'blue',100);
+ const u=mkUnit(t,'blue',BLUE_BASE_X);
  S.units.push(u);
- // spawn effect
  addPart(u.x, u.y-10, '#58a6ff', 6, 4);
+}
+
+function spawnBlueByIndex(idx){
+ const era=curE();
+ if(idx<0||idx>=era.units.length) return;
+ spawnBlue(era.units[idx].id);
 }
 
 function spawnRed(id, ei){
  const era=ERAS[ei||S.era];
  const t=era.units.find(u=>u.id===id);
  if(!t) return;
- const u=mkUnit(t,'red',W-100);
+ const u=mkUnit(t,'red',RED_BASE_X);
  S.units.push(u);
 }
 
@@ -296,7 +318,7 @@ function update(){
     if(d<nd){nd=d;near=e;}
    }
 
-   const baseX=u.team==='blue'?W-100:100;
+   const baseX=u.team==='blue'?RED_BASE_X:BLUE_BASE_X;
    const db=Math.abs(u.x-baseX);
    const inR=near&&nd<=u.range;
    const baseR=db<=80;
@@ -324,8 +346,8 @@ function update(){
      if(u.ranged){
       fireProj(u, {x:baseX, y:GY-30, flying:0, sz:30});
      } else {
-      if(u.team==='blue'){S.rhp-=u.atk; addText(W-100,GY-55,'-'+u.atk,'#f85149');addPart(W-100,GY-15,'#f85149',5,5);}
-      else {S.bhp-=u.atk; addText(100,GY-55,'-'+u.atk,'#58a6ff');addPart(100,GY-15,'#58a6ff',5,5);}
+      if(u.team==='blue'){S.rhp-=u.atk; addText(RED_BASE_X,GY-55,'-'+u.atk,'#f85149');addPart(RED_BASE_X,GY-15,'#f85149',5,5);}
+      else {S.bhp-=u.atk; addText(BLUE_BASE_X,GY-55,'-'+u.atk,'#58a6ff');addPart(BLUE_BASE_X,GY-15,'#58a6ff',5,5);}
      }
     }
    } else {
@@ -342,9 +364,7 @@ function update(){
    const dx=p.tx-p.x, dy=p.ty-p.y, dist=Math.sqrt(dx*dx+dy*dy);
    if(dist<8){
     p.alive=0;
-    // hit
     if(p.aoe>0){
-     // AOE
      for(const u of S.units){
       if(u.dead||u.team===p.team) continue;
       if(Math.abs(u.x-p.tx)<p.aoe){
@@ -435,12 +455,12 @@ function draw(){
 
  // lane
  cx.setLineDash([8,16]); cx.strokeStyle='rgba(255,255,255,0.04)'; cx.lineWidth=1;
- cx.beginPath(); cx.moveTo(110,GY+12); cx.lineTo(W-110,GY+12); cx.stroke();
+ cx.beginPath(); cx.moveTo(BLUE_BASE_X+20,GY+12); cx.lineTo(RED_BASE_X-20,GY+12); cx.stroke();
  cx.setLineDash([]);
 
  // bases
- drawBase(90,GY,'blue',S.bhp,S.maxhp);
- drawBase(W-90,GY,'red',S.rhp,S.maxhp);
+ drawBase(BLUE_BASE_X,GY,'blue',S.bhp,S.maxhp);
+ drawBase(RED_BASE_X,GY,'red',S.rhp,S.maxhp);
 
  // projectiles
  for(const p of S.proj){
@@ -472,6 +492,15 @@ function draw(){
   cx.globalAlpha=1;
  }
  }
+
+ // 选中兵种指示
+ const era2=curE();
+ if(S.selectedUnit>=0 && S.selectedUnit<era2.units.length){
+  const u=era2.units[S.selectedUnit];
+  cx.font='bold 12px sans-serif'; cx.fillStyle='#3fb950'; cx.textAlign='center';
+  cx.fillText('已选: '+u.emoji+' '+u.name, BLUE_BASE_X, GY+30);
+  cx.textAlign='left';
+ }
 }
 
 function drawBase(x,y,team,hp,maxhp){
@@ -480,7 +509,6 @@ function drawBase(x,y,team,hp,maxhp){
  const dk=team==='blue'?'#1a2a4a':'#4a1a1a';
  const bw=36,bh=55;
 
- // glow when low
  if(r<0.3){
   cx.fillStyle=`rgba(${team==='blue'?'88,166,255':'248,81,73'},${0.08+Math.sin(S.tick*0.06)*0.06})`;
   cx.beginPath(); cx.arc(x,y-bh/2,45,0,Math.PI*2); cx.fill();
@@ -490,25 +518,21 @@ function drawBase(x,y,team,hp,maxhp){
  cx.fillRect(x-bw/2,y-bh,bw,bh);
  cx.strokeRect(x-bw/2,y-bh,bw,bh);
 
- // battlements
  for(let i=-1;i<=1;i+=2){
   cx.fillRect(x+i*(bw/2-5)-5,y-bh-10,10,10);
   cx.strokeRect(x+i*(bw/2-5)-5,y-bh-10,10,10);
  }
 
- // gate
  cx.fillStyle='#111';
  cx.beginPath(); cx.arc(x,y-10,8,Math.PI,0);
  cx.fillRect(x-8,y-10,16,10); cx.fill();
 
- // HP bar
  const baw=44,bah=5;
  cx.fillStyle='#21262d'; cx.fillRect(x-baw/2,y-bh-18,baw,bah);
  cx.fillStyle=col; cx.fillRect(x-baw/2,y-bh-18,baw*r,bah);
  cx.strokeStyle='#30363d'; cx.lineWidth=1;
  cx.strokeRect(x-baw/2,y-bh-18,baw,bah);
 
- // label
  cx.font='bold 10px sans-serif'; cx.fillStyle=col; cx.textAlign='center';
  cx.fillText(team==='blue'?'我方':'敌方',x,y+14);
  cx.textAlign='left';
@@ -519,23 +543,19 @@ function drawUnit(u){
  const fy=u.flying?u.y-30-Math.sin(S.tick*0.04+u.x*0.01)*4:u.y;
  const sz=u.sz;
 
- // shadow
  if(u.flying){
   cx.fillStyle='rgba(0,0,0,0.25)';
   cx.beginPath(); cx.ellipse(u.x,u.y+2,sz*0.5,3,0,0,Math.PI*2); cx.fill();
  }
 
- // hit flash
  if(u.flash>0){
   cx.fillStyle='rgba(255,255,255,0.25)';
   cx.beginPath(); cx.arc(u.x,fy-sz/2,sz+4,0,Math.PI*2); cx.fill();
  }
 
- // body glow
  cx.fillStyle=u.team==='blue'?'rgba(88,166,255,0.12)':'rgba(248,81,73,0.12)';
  cx.beginPath(); cx.arc(u.x,fy-sz/2,sz+2,0,Math.PI*2); cx.fill();
 
- // body
  const bc=u.team==='blue'?'#2a5a9a':'#9a2a2a';
  const bl=u.team==='blue'?'#4a8aee':'#ee4a4a';
  cx.fillStyle=bc;
@@ -543,12 +563,10 @@ function drawUnit(u){
  cx.fillStyle=bl;
  cx.beginPath(); cx.arc(u.x-sz*0.15,fy-sz/2-sz*0.15,sz*0.35,0,Math.PI*2); cx.fill();
 
- // emoji
  cx.font=`${sz+5}px serif`; cx.textAlign='center'; cx.textBaseline='middle';
  cx.fillText(u.emoji,u.x,fy-sz/2);
  cx.textAlign='left'; cx.textBaseline='alphabetic';
 
- // attack animation
  if(u.atkAnim>4){
   cx.strokeStyle=u.team==='blue'?'rgba(88,166,255,0.5)':'rgba(248,81,73,0.5)';
   cx.lineWidth=2;
@@ -559,7 +577,6 @@ function drawUnit(u){
   cx.stroke();
  }
 
- // HP bar
  if(u.hp<u.mhp){
   const bw=sz*1.8, bh=3;
   const bx=u.x-bw/2, by=fy-sz-7;
@@ -589,20 +606,39 @@ function updateUI(){
  document.getElementById('bbar').style.width=(S.bhp/S.maxhp*100)+'%';
  document.getElementById('rbar').style.width=(S.rhp/S.maxhp*100)+'%';
 
- // timer
  const m=Math.floor(S.gameTime/60), s=Math.floor(S.gameTime%60);
  document.getElementById('timer').textContent=m+':'+(s<10?'0':'')+s;
 
- // unit buttons
+ // unit buttons — 用 data 属性避免每帧重建事件
  const btns=document.getElementById('unit-btns');
- btns.innerHTML='';
  const era=curE();
- era.units.forEach((u,i)=>{
-  const b=document.createElement('button');
-  b.className='unit-btn'+(S.gold<u.cost?' dis':'');
-  b.innerHTML=`<span>${u.emoji} ${u.name}</span><span class="cost">${u.cost}💰</span><span class="desc">${u.ranged?'远程':'近战'}${u.flying?' 飞行':''}</span><span class="hk">[${i+1}]</span>`;
-  b.onclick=()=>spawnBlue(u.id);
-  btns.appendChild(b);
+ const btnEls = btns.querySelectorAll('.unit-btn');
+
+ // 如果兵种数量变了（进化后），重建按钮
+ if(btnEls.length !== era.units.length){
+  btns.innerHTML='';
+  era.units.forEach((u,i)=>{
+   const b=document.createElement('button');
+   b.className='unit-btn';
+   b.dataset.idx=i;
+   b.innerHTML=`<span>${u.emoji} ${u.name}</span><span class="cost">${u.cost}💰</span><span class="desc">${u.ranged?'远程':'近战'}${u.flying?' 飞行':''}</span><span class="hk">[${i+1}]</span>`;
+   b.addEventListener('click', function(){
+    const idx=parseInt(this.dataset.idx);
+    S.selectedUnit=idx;
+    spawnBlueByIndex(idx);
+   });
+   btns.appendChild(b);
+  });
+ }
+
+ // 更新按钮状态（disabled / enabled）
+ btns.querySelectorAll('.unit-btn').forEach((b,i)=>{
+  const u=era.units[i];
+  if(u){
+   b.className='unit-btn'+(S.gold<u.cost?' dis':'');
+   if(i===S.selectedUnit) b.style.borderColor='#3fb950';
+   else b.style.borderColor='#30363d';
+  }
  });
 
  // upgrades
@@ -642,6 +678,7 @@ function upgradeEra(){
  S.maxhp+=600;
  S.bhp=Math.min(S.bhp+400,S.maxhp);
  S.rhp=Math.min(S.rhp+250,S.maxhp);
+ S.selectedUnit=0;  // 重置选中
  toast('⚡ '+curE().name+' ⚡','#e94560');
 }
 
@@ -666,6 +703,21 @@ function restart(){
  buildHK();
 }
 
+// ============ CANVAS CLICK TO SPAWN ============
+cv.addEventListener('click', function(e){
+ if(S.over) return;
+ const rect=cv.getBoundingClientRect();
+ const mx=(e.clientX-rect.left)*(cv.width/rect.width);
+ const my=(e.clientY-rect.top)*(cv.height/rect.height);
+
+ // 只在左侧半场点击才出兵（避免误点敌方区域）
+ if(mx < W*0.5){
+  spawnBlueByIndex(S.selectedUnit);
+  // 点击特效
+  addPart(mx, my, '#3fb950', 5, 3);
+ }
+});
+
 // ============ HOTKEYS ============
 let hkMap={};
 function buildHK(){
@@ -678,11 +730,22 @@ buildHK();
 document.addEventListener('keydown',e=>{
  if(S.over) return;
  const id=hkMap[e.key];
- if(id){spawnBlue(id);e.preventDefault();}
+ if(id){
+  const idx=Object.keys(hkMap).indexOf(e.key);
+  S.selectedUnit=idx;
+  spawnBlue(id);
+  e.preventDefault();
+ }
  if(e.key==='q'||e.key==='Q'){upgradeEra();e.preventDefault();}
  if(e.key==='w'||e.key==='W'){document.getElementById('btn-atk').click();e.preventDefault();}
  if(e.key==='e'||e.key==='E'){document.getElementById('btn-hp').click();e.preventDefault();}
  if(e.key==='r'||e.key==='R'){document.getElementById('btn-gold').click();e.preventDefault();}
+ // 选择兵种（不立即出兵，只选中）
+ if(e.key==='Tab'){
+  e.preventDefault();
+  const era=curE();
+  S.selectedUnit=(S.selectedUnit+1)%era.units.length;
+ }
 });
 
 // ============ GAME LOOP ============
