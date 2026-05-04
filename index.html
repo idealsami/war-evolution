@@ -132,9 +132,9 @@ window.addEventListener('resize', resize);
 const ERAS = [
   { name: '石器时代', bgColor: '#2d1f0e', groundColor: '#5c4a1e',
     units: [
-      { id:'clubber', name:'棒兵', emoji:'🪵', hp:60, atk:8, spd:0.5, range:25, atkSpd:0.4, cost:10, size:14 },
-      { id:'slinger', name:'投石手', emoji:'🪨', hp:40, atk:14, spd:0.45, range:120, atkSpd:0.3, cost:20, size:12, ranged:true },
-      { id:'mammoth', name:'猛犸象', emoji:'🐘', hp:200, atk:20, spd:0.25, range:30, atkSpd:0.25, cost:50, size:22 },
+      { id:'clubber', name:'棒兵', emoji:'🪵', hp:60, atk:8, spd:0.5, range:25, atkSpd:0.8, cost:10, size:14 },
+      { id:'slinger', name:'投石手', emoji:'🪨', hp:40, atk:14, spd:0.45, range:120, atkSpd:0.6, cost:20, size:12, ranged:true },
+      { id:'mammoth', name:'猛犸象', emoji:'🐘', hp:200, atk:20, spd:0.25, range:30, atkSpd:0.5, cost:50, size:22 },
     ]},
   { name: '青铜时代', bgColor: '#1a1a0e', groundColor: '#6b5a2e',
     units: [
@@ -316,10 +316,17 @@ function update() {
         }
       }
       // Stop moving
-    } else if (!nearest || nearDist > u.range * 1.5) {
-      // Move toward enemy base
+    } else {
+      // Move toward enemy (or enemy base if no enemy)
       const dir = u.team === 'blue' ? 1 : -1;
-      u.x += u.spd * dir;
+      if (nearest && nearDist < u.range * 3) {
+        // Move toward nearby enemy
+        const moveDir = nearest.x > u.x ? 1 : -1;
+        u.x += u.spd * moveDir;
+      } else {
+        // Move toward enemy base
+        u.x += u.spd * dir;
+      }
     }
 
     // Attack base if close enough and no unit blocking
