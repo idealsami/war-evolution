@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>战争进化史</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+#top-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 20px; background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border-bottom: 2px solid #0f3460; min-height: 50px;
+}
+#top-bar .res { display: flex; gap: 20px; align-items: center; font-size: 15px; }
+#top-bar .res span { display: flex; align-items: center; gap: 5px; }
+.gold { color: #ffd700; } .exp { color: #7b68ee; }
+.era-info { font-size: 16px; font-weight: bold; color: #e94560; }
+.hp-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.hp-bar { width: 120px; height: 16px; background: #333; border-radius: 8px; overflow: hidden; border: 1px solid #555; }
+.hp-fill { height: 100%; transition: width 0.3s; border-radius: 8px; }
+.hp-fill.blue { background: linear-gradient(90deg, #1e90ff, #00bfff); }
+.hp-fill.red { background: linear-gradient(90deg, #ff4444, #ff6b6b); }
+.hp-label { font-size: 12px; min-width: 60px; }
+
+#canvas-wrap { flex: 1; position: relative; }
+canvas { display: block; width: 100%; height: 100%; }
+
+#controls {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border-top: 2px solid #0f3460; padding: 8px 15px;
+}
+#unit-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.unit-btn {
+  padding: 6px 12px; border: 1px solid #444; border-radius: 6px;
+  background: #1e1e2f; color: #ddd; cursor: pointer; font-size: 12px;
+  transition: all 0.15s; display: flex; flex-direction: column; align-items: center; min-width: 80px;
+}
+.unit-btn:hover { background: #2a2a4a; border-color: #7b68ee; transform: translateY(-1px); }
+.unit-btn .cost { color: #ffd700; font-size: 10px; }
+.unit-btn .hotkey { color: #888; font-size: 10px; }
+.unit-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+
+#upgrade-btns { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+.up-btn {
+  padding: 5px 14px; border: 1px solid #e94560; border-radius: 6px;
+  background: linear-gradient(135deg, #2a1a1a, #1a1a2e); color: #e94560;
+  cursor: pointer; font-size: 12px; font-weight: bold;
+}
+.up-btn:hover { background: #e94560; color: #fff; }
+.up-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+
+#msg {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 48px; font-weight: bold; text-shadow: 0 0 20px rgba(0,0,0,0.8);
+  pointer-events: none; opacity: 0; transition: opacity 0.5s;
+  z-index: 10;
+}
+
+#game-over {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85); display: none; z-index: 20;
+  flex-direction: column; align-items: center; justify-content: center;
+}
+#game-over h1 { font-size: 60px; margin-bottom: 20px; }
+#game-over p { font-size: 20px; margin-bottom: 30px; color: #aaa; }
+#game-over button {
+  padding: 12px 40px; font-size: 18px; border: none; border-radius: 8px;
+  background: #e94560; color: #fff; cursor: pointer;
+}
+#game-over button:hover { background: #ff6b6b; }
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <div class="res">
+    <span class="gold">💰 <b id="gold">100</b></span>
+    <span class="exp">⭐ <b id="exp">0</b></span>
+  </div>
+  <div class="hp-bar-wrap">
+    <span class="hp-label" style="color:#4a9eff">🏠 <span id="blue-hp">2000</span></span>
+    <div class="hp-bar"><div class="hp-fill blue" id="blue-bar" style="width:100%"></div></div>
+  </div>
+  <div class="era-info" id="era-name">石器时代</div>
+  <div class="hp-bar-wrap">
+    <div class="hp-bar"><div class="hp-fill red" id="red-bar" style="width:100%"></div></div>
+    <span class="hp-label" style="color:#ff4444"><span id="red-hp">2000</span> 🏠</span>
+  </div>
+  <div class="res">
+    <span>⚔️ <b id="kills">0</b></span>
+  </div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="game"></canvas>
+  <div id="msg"></div>
+  <div id="game-over">
+    <h1 id="go-title">战败</h1>
+    <p id="go-desc">你的基地被摧毁了</p>
+    <button onclick="restartGame()">再来一局</button>
+  </div>
+</div>
+
+<div id="controls">
+  <div id="unit-btns"></div>
+  <div id="upgrade-btns">
+    <button class="up-btn" id="btn-era" title="升级时代">⏩ 升级时代</button>
+    <button class="up-btn" id="btn-atk" title="攻击力+20%">⚔️ 攻击强化 (50💰)</button>
+    <button class="up-btn" id="btn-hp" title="生命+20%">❤️ 生命强化 (50💰)</button>
+    <button class="up-btn" id="btn-gold" title="金币获取+30%">💰 经济强化 (80💰)</button>
+  </div>
+</div>
+
+<script>
+// ====== GAME ENGINE ======
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('canvas-wrap');
+
+let W, H, GROUND_Y;
+function resize() {
+  W = canvas.width = wrap.clientWidth;
+  H = canvas.height = wrap.clientHeight;
+  GROUND_Y = H - 60;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ====== ERA DATA ======
+const ERAS = [
+  { name: '石器时代', bgColor: '#2d1f0e', groundColor: '#5c4a1e',
+    units: [
+      { id:'clubber', name:'棒兵', emoji:'🪵', hp:60, atk:8, spd:0.5, range:25, atkSpd:0.4, cost:10, size:14 },
+      { id:'slinger', name:'投石手', emoji:'🪨', hp:40, atk:14, spd:0.45, range:120, atkSpd:0.3, cost:20, size:12, ranged:true },
+      { id:'mammoth', name:'猛犸象', emoji:'🐘', hp:200, atk:20, spd:0.25, range:30, atkSpd:0.25, cost:50, size:22 },
+    ]},
+  { name: '青铜时代', bgColor: '#1a1a0e', groundColor: '#6b5a2e',
+    units: [
+      { id:'swordsman', name:'剑士', emoji:'⚔️', hp:100, atk:15, spd:0.55, range:28, atkSpd:0.45, cost:25, size:14 },
+      { id:'archer', name:'弓箭手', emoji:'🏹', hp:60, atk:22, spd:0.45, range:160, atkSpd:0.35, cost:35, size:12, ranged:true },
+      { id:'spearman', name:'枪兵', emoji:'🔱', hp:80, atk:18, spd:0.5, range:40, atkSpd:0.35, cost:30, size:14 },
+      { id:'chariot', name:'战车', emoji:'🐎', hp:180, atk:25, spd:0.75, range:30, atkSpd:0.3, cost:60, size:20 },
+    ]},
+  { name: '铁器时代', bgColor: '#121218', groundColor: '#4a4a5a',
+    units: [
+      { id:'knight', name:'骑士', emoji:'🛡️', hp:160, atk:25, spd:0.6, range:30, atkSpd:0.45, cost:45, size:16 },
+      { id:'crossbow', name:'弩手', emoji:'🏹', hp:80, atk:35, spd:0.4, range:180, atkSpd:0.25, cost:50, size:13, ranged:true },
+      { id:'catapult', name:'投石车', emoji:'🪨', hp:120, atk:60, spd:0.2, range:250, atkSpd:0.15, cost:80, size:22, ranged:true },
+      { id:'warrider', name:'战争巨兽', emoji:'🦣', hp:350, atk:40, spd:0.3, range:35, atkSpd:0.25, cost:100, size:26 },
+    ]},
+  { name: '中世纪', bgColor: '#0e1218', groundColor: '#3a4a3a',
+    units: [
+      { id:'hKnight', name:'重装骑士', emoji:'⚜️', hp:220, atk:35, spd:0.5, range:32, atkSpd:0.4, cost:60, size:17 },
+      { id:'longbow', name:'长弓手', emoji:'🎯', hp:90, atk:45, spd:0.4, range:200, atkSpd:0.3, cost:55, size:13, ranged:true },
+      { id:'trebuchet', name:'投石机', emoji:'🏗️', hp:150, atk:80, spd:0.15, range:280, atkSpd:0.12, cost:100, size:24, ranged:true },
+      { id:'paladin', name:'圣骑士', emoji:'✨', hp:300, atk:45, spd:0.55, range:35, atkSpd:0.35, cost:90, size:18 },
+    ]},
+  { name: '火药时代', bgColor: '#181818', groundColor: '#4a3a2a',
+    units: [
+      { id:'musket', name:'火枪手', emoji:'🔫', hp:100, atk:50, spd:0.45, range:200, atkSpd:0.25, cost:55, size:14, ranged:true },
+      { id:'pike', name:'长枪兵', emoji:'🔱', hp:130, atk:30, spd:0.5, range:45, atkSpd:0.4, cost:40, size:14 },
+      { id:'cannon', name:'大炮', emoji:'💣', hp:160, atk:100, spd:0.15, range:300, atkSpd:0.1, cost:120, size:24, ranged:true },
+      { id:'cavalry', name:'骑兵', emoji:'🐴', hp:200, atk:55, spd:0.9, range:30, atkSpd:0.35, cost:80, size:18 },
+    ]},
+  { name: '工业时代', bgColor: '#141414', groundColor: '#3a3a3a',
+    units: [
+      { id:'rifleman', name:'步枪兵', emoji:'🔫', hp:140, atk:60, spd:0.5, range:220, atkSpd:0.3, cost:60, size:14, ranged:true },
+      { id:'machinegun', name:'机枪手', emoji:'🔫', hp:120, atk:35, spd:0.35, range:180, atkSpd:1.2, cost:80, size:16, ranged:true },
+      { id:'tank', name:'坦克', emoji:'🛡️', hp:400, atk:70, spd:0.4, range:60, atkSpd:0.25, cost:150, size:26 },
+      { id:'artillery', name:'火炮', emoji:'💥', hp:100, atk:120, spd:0.12, range:350, atkSpd:0.1, cost:130, size:22, ranged:true },
+    ]},
+  { name: '现代战争', bgColor: '#0a0a14', groundColor: '#2a2a3a',
+    units: [
+      { id:'marine', name:'海军陆战队', emoji:'🎖️', hp:180, atk:70, spd:0.55, range:240, atkSpd:0.35, cost:70, size:15, ranged:true },
+      { id:'rpg', name:'火箭兵', emoji:'🚀', hp:120, atk:130, spd:0.45, range:260, atkSpd:0.2, cost:90, size:14, ranged:true },
+      { id:'mbt', name:'主战坦克', emoji:'🛡️', hp:600, atk:90, spd:0.35, range:70, atkSpd:0.25, cost:200, size:28 },
+      { id:'heli', name:'直升机', emoji:'🚁', hp:250, atk:80, spd:0.7, range:200, atkSpd:0.4, cost:160, size:20, ranged:true, flying:true },
+    ]},
+  { name: '未来战争', bgColor: '#050510', groundColor: '#1a1a2a',
+    units: [
+      { id:'plasma', name:'等离子兵', emoji:'⚡', hp:200, atk:90, spd:0.6, range:250, atkSpd:0.4, cost:80, size:15, ranged:true },
+      { id:'mech', name:'机甲战士', emoji:'🤖', hp:500, atk:100, spd:0.4, range:50, atkSpd:0.35, cost:180, size:24 },
+      { id:'railgun', name:'电磁炮', emoji:'🔫', hp:150, atk:200, spd:0.15, range:400, atkSpd:0.15, cost:200, size:20, ranged:true },
+      { id:'drone', name:'无人机群', emoji:'🛸', hp:180, atk:60, spd:1.0, range:220, atkSpd:0.7, cost:120, size:16, ranged:true, flying:true },
+    ]},
+];
+
+// ====== GAME STATE ======
+let state = {};
+function initState() {
+  state = {
+    gold: 100, exp: 0, kills: 0, eraIdx: 0,
+    blueBaseHP: 2000, redBaseHP: 2000,
+    maxBaseHP: 2000,
+    units: [], projectiles: [], particles: [],
+    atkMult: 1, hpMult: 1, goldMult: 1,
+    atkUpg: 0, hpUpg: 0, goldUpg: 0,
+    aiTimer: 0, aiInterval: 240,
+    spawnQueue: [],
+    gameOver: false, paused: false,
+    tick: 0,
+  };
+}
+initState();
+
+function curEra() { return ERAS[state.eraIdx]; }
+function eraUpgCost() { return 100 + state.eraIdx * 80; }
+
+// ====== UNIT CREATION ======
+function spawnUnit(template, team, x) {
+  const s = state;
+  const hp = Math.round(template.hp * s.hpMult * (team === 'blue' ? 1 : 1 + state.eraIdx * 0.05));
+  const atk = Math.round(template.atk * s.atkMult * (team === 'red' ? 1 + state.eraIdx * 0.03 : 1));
+  return {
+    ...template, team, x, y: GROUND_Y,
+    hp, maxHP: hp, atk,
+    atkCooldown: 0, dead: false,
+    animFrame: 0, animTimer: 0,
+    hitFlash: 0,
+  };
+}
+
+function spawnBlue(templateId) {
+  const era = curEra();
+  const t = era.units.find(u => u.id === templateId);
+  if (!t) return;
+  if (state.gold < t.cost) return;
+  state.gold -= t.cost;
+  const u = spawnUnit(t, 'blue', 90);
+  state.units.push(u);
+}
+
+function spawnRed(templateId, eraIdx) {
+  const era = ERAS[eraIdx || state.eraIdx];
+  const t = era.units.find(u => u.id === templateId);
+  if (!t) return;
+  const u = spawnUnit(t, 'red', W - 90);
+  state.units.push(u);
+}
+
+// ====== PROJECTILES ======
+function spawnProjectile(from, target) {
+  state.projectiles.push({
+    x: from.x + (from.team === 'blue' ? 20 : -20),
+    y: from.y - (from.flying ? 40 : from.size || 14),
+    tx: target.x, ty: target.y - (target.flying ? 40 : target.size || 14),
+    team: from.team, dmg: from.atk,
+    speed: 5, alive: true,
+    trail: [],
+  });
+}
+
+// ====== PARTICLES ======
+function addParticle(x, y, color, count, spread) {
+  for (let i = 0; i < count; i++) {
+    state.particles.push({
+      x, y, vx: (Math.random() - 0.5) * spread, vy: -Math.random() * spread * 0.8 - 1,
+      life: 30 + Math.random() * 20, maxLife: 50, color, size: 2 + Math.random() * 3,
+    });
+  }
+}
+
+function addDmgText(x, y, text, color) {
+  state.particles.push({
+    x, y, vx: 0, vy: -2, life: 40, maxLife: 40, text, color, size: 14,
+  });
+}
+
+// ====== UPDATE ======
+function update() {
+  if (state.gameOver || state.paused) return;
+  const s = state;
+  s.tick++;
+
+  // Gold income
+  if (s.tick % 150 === 0) s.gold += Math.round((3 + s.eraIdx * 2) * s.goldMult);
+
+  // Update units
+  for (const u of s.units) {
+    if (u.dead) continue;
+    u.animTimer++;
+    if (u.animTimer > 14) { u.animTimer = 0; u.animFrame = (u.animFrame + 1) % 4; }
+    if (u.hitFlash > 0) u.hitFlash--;
+    if (u.atkCooldown > 0) u.atkCooldown--;
+
+    // Find nearest enemy
+    let nearest = null, nearDist = Infinity;
+    for (const e of s.units) {
+      if (e.dead || e.team === u.team) continue;
+      const d = Math.abs(e.x - u.x);
+      if (d < nearDist) { nearDist = d; nearest = e; }
+    }
+
+    // Check enemy base
+    const baseX = u.team === 'blue' ? W - 90 : 90;
+    const distToBase = Math.abs(u.x - baseX);
+
+    // Decide target
+    const inRange = nearest && nearDist <= u.range;
+    const baseInRange = distToBase <= u.range + 30;
+
+    if (inRange) {
+      // Attack enemy unit
+      if (u.atkCooldown <= 0) {
+        u.atkCooldown = Math.round(60 / u.atkSpd);
+        if (u.ranged) {
+          spawnProjectile(u, nearest);
+        } else {
+          nearest.hp -= u.atk;
+          nearest.hitFlash = 6;
+          addDmgText(nearest.x, nearest.y - 30, '-' + u.atk, '#ff4444');
+          addParticle(nearest.x, nearest.y - 10, '#ff6644', 3, 3);
+          if (nearest.hp <= 0) killUnit(nearest, u.team);
+        }
+      }
+      // Stop moving
+    } else if (!nearest || nearDist > u.range * 1.5) {
+      // Move toward enemy base
+      const dir = u.team === 'blue' ? 1 : -1;
+      u.x += u.spd * dir;
+    }
+
+    // Attack base if close enough and no unit blocking
+    if (!inRange && baseInRange && (!nearest || nearDist > u.range)) {
+      if (u.atkCooldown <= 0) {
+        u.atkCooldown = Math.round(60 / u.atkSpd);
+        const dmg = u.atk;
+        if (u.team === 'blue') {
+          s.redBaseHP -= dmg;
+          addDmgText(W - 90, GROUND_Y - 60, '-' + dmg, '#ff4444');
+          addParticle(W - 90, GROUND_Y - 20, '#ff4444', 5, 5);
+        } else {
+          s.blueBaseHP -= dmg;
+          addDmgText(90, GROUND_Y - 60, '-' + dmg, '#4a9eff');
+          addParticle(90, GROUND_Y - 20, '#4a9eff', 5, 5);
+        }
+      }
+    }
+  }
+
+  // Update projectiles
+  for (const p of s.projectiles) {
+    if (!p.alive) continue;
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 8) p.trail.shift();
+    const dx = p.tx - p.x, dy = p.ty - p.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 10) {
+      p.alive = false;
+      // Hit - find nearest enemy near target
+      for (const u of s.units) {
+        if (u.dead || u.team === p.team) continue;
+        if (Math.abs(u.x - p.tx) < 30) {
+          u.hp -= p.dmg;
+          u.hitFlash = 6;
+          addDmgText(u.x, u.y - 30, '-' + p.dmg, '#ff4444');
+          addParticle(u.x, u.y - 10, '#ffaa44', 4, 4);
+          if (u.hp <= 0) killUnit(u, p.team);
+          break;
+        }
+      }
+    } else {
+      p.x += (dx / dist) * p.speed;
+      p.y += (dy / dist) * p.speed;
+    }
+  }
+
+  // Update particles
+  for (const p of s.particles) {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.05;
+    p.life--;
+  }
+  s.particles = s.particles.filter(p => p.life > 0);
+  s.projectiles = s.projectiles.filter(p => p.alive);
+  s.units = s.units.filter(u => !u.dead);
+
+  // AI
+  s.aiTimer++;
+  if (s.aiTimer >= s.aiInterval) {
+    s.aiTimer = 0;
+    aiSpawn();
+    // AI gets slightly faster over time
+    s.aiInterval = Math.max(100, 240 - state.eraIdx * 12);
+  }
+
+  // Game over check
+  if (s.blueBaseHP <= 0) {
+    s.blueBaseHP = 0;
+    endGame(false);
+  }
+  if (s.redBaseHP <= 0) {
+    s.redBaseHP = 0;
+    endGame(true);
+  }
+}
+
+function killUnit(u, killerTeam) {
+  u.dead = true;
+  const goldGain = Math.round((5 + u.cost * 0.3) * state.goldMult);
+  const expGain = Math.round(3 + u.cost * 0.15);
+  if (killerTeam === 'blue') {
+    state.gold += goldGain;
+    state.exp += expGain;
+    state.kills++;
+    addDmgText(u.x, u.y - 50, '+' + goldGain + '💰', '#ffd700');
+  }
+  addParticle(u.x, u.y - 10, u.team === 'blue' ? '#4a9eff' : '#ff4444', 8, 5);
+}
+
+// ====== AI ======
+function aiSpawn() {
+  const s = state;
+  const eraIdx = Math.min(s.eraIdx + (Math.random() < 0.2 ? 1 : 0), ERAS.length - 1);
+  const era = ERAS[eraIdx];
+  const budget = 20 + s.eraIdx * 15;
+  let spent = 0;
+  const attempts = 5;
+  for (let i = 0; i < attempts && spent < budget; i++) {
+    const t = era.units[Math.floor(Math.random() * era.units.length)];
+    if (spent + t.cost <= budget + 10) {
+      spawnRed(t.id, eraIdx);
+      spent += t.cost;
+    }
+  }
+}
+
+// ====== DRAW ======
+function draw() {
+  const s = state;
+  const era = curEra();
+
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  skyGrad.addColorStop(0, era.bgColor);
+  skyGrad.addColorStop(1, adjustColor(era.bgColor, 20));
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, GROUND_Y);
+
+  // Ground
+  const gndGrad = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+  gndGrad.addColorStop(0, era.groundColor);
+  gndGrad.addColorStop(1, adjustColor(era.groundColor, -20));
+  ctx.fillStyle = gndGrad;
+  ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+  // Ground line
+  ctx.strokeStyle = adjustColor(era.groundColor, 30);
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(W, GROUND_Y); ctx.stroke();
+
+  // Lane markings
+  ctx.setLineDash([10, 20]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(100, GROUND_Y + 15); ctx.lineTo(W - 100, GROUND_Y + 15); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Bases
+  drawBase(80, GROUND_Y, 'blue', s.blueBaseHP, s.maxBaseHP);
+  drawBase(W - 80, GROUND_Y, 'red', s.redBaseHP, s.maxBaseHP);
+
+  // Projectiles
+  for (const p of s.projectiles) {
+    if (!p.alive) continue;
+    // Trail
+    for (let i = 0; i < p.trail.length; i++) {
+      const alpha = i / p.trail.length * 0.5;
+      ctx.fillStyle = p.team === 'blue' ? `rgba(74,158,255,${alpha})` : `rgba(255,68,68,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(p.trail[i].x, p.trail[i].y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Bullet
+    ctx.fillStyle = p.team === 'blue' ? '#4a9eff' : '#ff4444';
+    ctx.shadowColor = p.team === 'blue' ? '#4a9eff' : '#ff4444';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Units
+  for (const u of s.units) {
+    if (u.dead) continue;
+    drawUnit(u);
+  }
+
+  // Particles
+  for (const p of s.particles) {
+    const alpha = p.life / p.maxLife;
+    if (p.text) {
+      ctx.font = `bold ${p.size}px sans-serif`;
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = alpha;
+      ctx.fillText(p.text, p.x - 15, p.y);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Fog of war edges
+  const fogW = 80;
+  const fogL = ctx.createLinearGradient(0, 0, fogW, 0);
+  fogL.addColorStop(0, 'rgba(0,0,0,0.6)');
+  fogL.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = fogL;
+  ctx.fillRect(0, 0, fogW, H);
+
+  const fogR = ctx.createLinearGradient(W - fogW, 0, W, 0);
+  fogR.addColorStop(0, 'rgba(0,0,0,0)');
+  fogR.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = fogR;
+  ctx.fillRect(W - fogW, 0, fogW, H);
+}
+
+function drawBase(x, y, team, hp, maxHP) {
+  const ratio = hp / maxHP;
+  const color = team === 'blue' ? '#4a9eff' : '#ff4444';
+  const dark = team === 'blue' ? '#1a3a6a' : '#6a1a1a';
+
+  // Castle shape
+  const bw = 40, bh = 60;
+  ctx.fillStyle = dark;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+
+  // Main body
+  ctx.fillRect(x - bw/2, y - bh, bw, bh);
+  ctx.strokeRect(x - bw/2, y - bh, bw, bh);
+
+  // Battlements
+  const tw = 12;
+  for (let i = -1; i <= 1; i += 2) {
+    ctx.fillRect(x + i * (bw/2 - tw/2) - tw/2, y - bh - 12, tw, 12);
+    ctx.strokeRect(x + i * (bw/2 - tw/2) - tw/2, y - bh - 12, tw, 12);
+  }
+
+  // Gate
+  ctx.fillStyle = '#111';
+  ctx.beginPath();
+  ctx.arc(x, y - 12, 10, Math.PI, 0);
+  ctx.fillRect(x - 10, y - 12, 20, 12);
+  ctx.fill();
+
+  // HP bar
+  const barW = 50, barH = 6;
+  ctx.fillStyle = '#333';
+  ctx.fillRect(x - barW/2, y - bh - 22, barW, barH);
+  ctx.fillStyle = color;
+  ctx.fillRect(x - barW/2, y - bh - 22, barW * ratio, barH);
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x - barW/2, y - bh - 22, barW, barH);
+
+  // Glow when damaged
+  if (ratio < 0.3) {
+    ctx.fillStyle = `rgba(${team === 'blue' ? '74,158,255' : '255,68,68'},${0.1 + Math.sin(Date.now() / 200) * 0.1})`;
+    ctx.beginPath();
+    ctx.arc(x, y - bh/2, 50, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawUnit(u) {
+  const dir = u.team === 'blue' ? 1 : -1;
+  const drawY = u.flying ? u.y - 35 - Math.sin(state.tick * 0.05 + u.x) * 5 : u.y;
+  const size = u.size;
+
+  // Shadow
+  if (u.flying) {
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(u.x, u.y + 2, size * 0.6, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Hit flash
+  if (u.hitFlash > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath();
+    ctx.arc(u.x, drawY - size/2, size + 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Body glow
+  const glowColor = u.team === 'blue' ? 'rgba(74,158,255,0.15)' : 'rgba(255,68,68,0.15)';
+  ctx.fillStyle = glowColor;
+  ctx.beginPath();
+  ctx.arc(u.x, drawY - size/2, size + 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Body
+  const bodyColor = u.team === 'blue' ? '#3a7acc' : '#cc3a3a';
+  const bodyLight = u.team === 'blue' ? '#5a9aee' : '#ee5a5a';
+
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.arc(u.x, drawY - size/2, size, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = bodyLight;
+  ctx.beginPath();
+  ctx.arc(u.x - size * 0.2, drawY - size/2 - size * 0.2, size * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Emoji
+  ctx.font = `${size + 6}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(u.emoji, u.x, drawY - size/2);
+
+  // HP bar
+  if (u.hp < u.maxHP) {
+    const barW = size * 2, barH = 3;
+    const bx = u.x - barW/2, by = drawY - size - 8;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(bx, by, barW, barH);
+    const ratio = u.hp / u.maxHP;
+    ctx.fillStyle = ratio > 0.5 ? '#4a4' : ratio > 0.25 ? '#aa4' : '#a44';
+    ctx.fillRect(bx, by, barW * ratio, barH);
+  }
+
+  // Attack animation
+  if (u.atkCooldown > Math.round(60 / u.atkSpd) - 5) {
+    ctx.strokeStyle = u.team === 'blue' ? 'rgba(74,158,255,0.5)' : 'rgba(255,68,68,0.5)';
+    ctx.lineWidth = 2;
+    const atkDir = u.team === 'blue' ? 1 : -1;
+    ctx.beginPath();
+    ctx.moveTo(u.x + atkDir * size, drawY - size/2);
+    ctx.lineTo(u.x + atkDir * (size + 15), drawY - size/2);
+    ctx.stroke();
+  }
+}
+
+function adjustColor(hex, amount) {
+  let r = parseInt(hex.slice(1,3), 16) + amount;
+  let g = parseInt(hex.slice(3,5), 16) + amount;
+  let b = parseInt(hex.slice(5,7), 16) + amount;
+  r = Math.max(0, Math.min(255, r));
+  g = Math.max(0, Math.min(255, g));
+  b = Math.max(0, Math.min(255, b));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ====== UI ======
+function updateUI() {
+  document.getElementById('gold').textContent = state.gold;
+  document.getElementById('exp').textContent = state.exp;
+  document.getElementById('kills').textContent = state.kills;
+  document.getElementById('era-name').textContent = curEra().name + ' (Lv.' + (state.eraIdx + 1) + ')';
+
+  document.getElementById('blue-hp').textContent = state.blueBaseHP;
+  document.getElementById('red-hp').textContent = state.redBaseHP;
+  document.getElementById('blue-bar').style.width = (state.blueBaseHP / state.maxBaseHP * 100) + '%';
+  document.getElementById('red-bar').style.width = (state.redBaseHP / state.maxBaseHP * 100) + '%';
+
+  // Unit buttons
+  const btns = document.getElementById('unit-btns');
+  btns.innerHTML = '';
+  const era = curEra();
+  era.units.forEach((u, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'unit-btn' + (state.gold < u.cost ? ' disabled' : '');
+    btn.innerHTML = `<span>${u.emoji} ${u.name}</span><span class="cost">${u.cost}💰</span><span class="hotkey">[${i+1}]</span>`;
+    btn.onclick = () => spawnBlue(u.id);
+    btns.appendChild(btn);
+  });
+
+  // Upgrade buttons
+  const eraBtn = document.getElementById('btn-era');
+  const ec = eraUpgCost();
+  eraBtn.textContent = state.eraIdx >= ERAS.length - 1 ? '⏩ 已满级' : `⏩ 升级时代 (${ec}⭐)`;
+  eraBtn.className = 'up-btn' + (state.eraIdx >= ERAS.length - 1 || state.exp < ec ? ' disabled' : '');
+  eraBtn.onclick = () => upgradeEra();
+
+  const atkBtn = document.getElementById('btn-atk');
+  const atkCost = 50 + state.atkUpg * 30;
+  atkBtn.textContent = `⚔️ 攻击+20% (${atkCost}💰)`;
+  atkBtn.className = 'up-btn' + (state.gold < atkCost ? ' disabled' : '');
+  atkBtn.onclick = () => { if (state.gold >= atkCost) { state.gold -= atkCost; state.atkMult *= 1.2; state.atkUpg++; } };
+
+  const hpBtn = document.getElementById('btn-hp');
+  const hpCost = 50 + state.hpUpg * 30;
+  hpBtn.textContent = `❤️ 生命+20% (${hpCost}💰)`;
+  hpBtn.className = 'up-btn' + (state.gold < hpCost ? ' disabled' : '');
+  hpBtn.onclick = () => { if (state.gold >= hpCost) { state.gold -= hpCost; state.hpMult *= 1.2; state.hpUpg++; } };
+
+  const goldBtn = document.getElementById('btn-gold');
+  const goldCost = 80 + state.goldUpg * 50;
+  goldBtn.textContent = `💰 经济+30% (${goldCost}💰)`;
+  goldBtn.className = 'up-btn' + (state.gold < goldCost ? ' disabled' : '');
+  goldBtn.onclick = () => { if (state.gold >= goldCost) { state.gold -= goldCost; state.goldMult *= 1.3; state.goldUpg++; } };
+}
+
+function upgradeEra() {
+  const cost = eraUpgCost();
+  if (state.eraIdx >= ERAS.length - 1 || state.exp < cost) return;
+  state.exp -= cost;
+  state.eraIdx++;
+  state.maxBaseHP += 500;
+  state.blueBaseHP = Math.min(state.blueBaseHP + 300, state.maxBaseHP);
+  state.redBaseHP = Math.min(state.redBaseHP + 200, state.maxBaseHP);
+  showMsg('⚡ ' + curEra().name + ' ⚡', '#e94560');
+}
+
+function showMsg(text, color) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.style.color = color;
+  el.style.opacity = 1;
+  setTimeout(() => el.style.opacity = 0, 2000);
+}
+
+function endGame(win) {
+  state.gameOver = true;
+  const go = document.getElementById('game-over');
+  go.style.display = 'flex';
+  document.getElementById('go-title').textContent = win ? '🎉 胜利！' : '💀 战败';
+  document.getElementById('go-title').style.color = win ? '#ffd700' : '#ff4444';
+  document.getElementById('go-desc').textContent = win ? '你摧毁了敌方基地！' : '你的基地被摧毁了';
+}
+
+function restartGame() {
+  initState();
+  document.getElementById('game-over').style.display = 'none';
+  buildHotkeys();
+}
+
+// ====== HOTKEYS ======
+let hotkeyMap = {};
+function buildHotkeys() {
+  hotkeyMap = {};
+  const era = curEra();
+  era.units.forEach((u, i) => {
+    hotkeyMap[String(i + 1)] = u.id;
+  });
+}
+buildHotkeys();
+
+document.addEventListener('keydown', e => {
+  if (state.gameOver) return;
+  const id = hotkeyMap[e.key];
+  if (id) { spawnBlue(id); e.preventDefault(); }
+  if (e.key === 'e' || e.key === 'E') { upgradeEra(); e.preventDefault(); }
+});
+
+// ====== GAME LOOP ======
+function loop() {
+  update();
+  draw();
+  updateUI();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
