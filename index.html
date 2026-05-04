@@ -113,7 +113,7 @@ canvas { display:block; width:100%; height:100%; }
     <p id="go-desc">你的基地被摧毁了</p>
     <button onclick="restart()">再来一局</button>
   </div>
-  <div id="how-to">1-4出兵 | Q升级时代 | W攻击强化 | E生命强化 | R经济强化</div>
+  <div id="how-to">1-4出兵 | Q升级时代 | W攻击强化 | E生命强化 | R经济强化 | T建造炮台</div>
   <div id="spawn-hint">🖱️ 点击左侧区域出兵</div>
 </div>
 
@@ -124,6 +124,7 @@ canvas { display:block; width:100%; height:100%; }
     <button class="u-btn" id="btn-atk">⚔️ 攻击</button>
     <button class="u-btn" id="btn-hp">❤️ 生命</button>
     <button class="u-btn" id="btn-gold">💰 经济</button>
+    <button class="u-btn" id="btn-turret">🏗️ 建造炮台</button>
     <button class="u-btn" id="speed-btn">⏩ x1</button>
   </div>
 </div>
@@ -153,56 +154,72 @@ const ERAS=[
   {id:'stick',  name:'棒兵',   emoji:'🪵', hp:80,  atk:10, spd:0.35, range:28,  as:0.25, cost:10, sz:13},
   {id:'stone',  name:'投石手', emoji:'🪨', hp:50,  atk:18, spd:0.3,  range:110, as:0.18, cost:20, sz:11, ranged:1},
   {id:'mammoth',name:'猛犸象', emoji:'🐘', hp:250, atk:28, spd:0.18, range:32,  as:0.15, cost:55, sz:22},
- ]},
+ ],
+ turret:{name:'石塔',emoji:'🪨',hp:200,atk:15,range:150,as:0.8,cost:60,sz:18,ranged:1},
+},
 {name:'青铜时代',bg:'#12120a',gnd:'#4a3d1e',sky:'#1e1a0e',
  units:[
   {id:'sword',  name:'剑士',   emoji:'⚔️', hp:120, atk:18, spd:0.38, range:28,  as:0.28, cost:20, sz:13},
   {id:'archer', name:'弓箭手', emoji:'🏹', hp:70,  atk:26, spd:0.3,  range:150, as:0.2,  cost:30, sz:11, ranged:1},
   {id:'spear',  name:'枪兵',   emoji:'🔱', hp:100, atk:22, spd:0.35, range:42,  as:0.22, cost:25, sz:13},
   {id:'chariot',name:'战车',   emoji:'🐎', hp:200, atk:30, spd:0.5,  range:30,  as:0.2,  cost:55, sz:19},
- ]},
+ ],
+ turret:{name:'箭塔',emoji:'🏹',hp:300,atk:25,range:180,as:1.0,cost:100,sz:18,ranged:1},
+},
 {name:'铁器时代',bg:'#0e0e14',gnd:'#3a3a4a',sky:'#14141e',
  units:[
   {id:'knight', name:'骑士',   emoji:'🛡️', hp:180, atk:28, spd:0.4,  range:30,  as:0.28, cost:40, sz:15},
   {id:'cross',  name:'弩手',   emoji:'🏹', hp:90,  atk:40, spd:0.28, range:170, as:0.15, cost:45, sz:12, ranged:1},
   {id:'catapult',name:'投石车',emoji:'🪨', hp:140, atk:70, spd:0.12, range:240, as:0.08, cost:75, sz:22, ranged:1},
   {id:'beast',  name:'战争巨兽',emoji:'🦣', hp:400, atk:45, spd:0.2,  range:34,  as:0.15, cost:90, sz:26},
- ]},
+ ],
+ turret:{name:'弩塔',emoji:'⚔️',hp:400,atk:40,range:200,as:0.9,cost:160,sz:18,ranged:1},
+},
 {name:'中世纪',bg:'#0a0e14',gnd:'#2e3a2e',sky:'#0e1418',
  units:[
   {id:'hkn',   name:'重装骑士',emoji:'⚜️', hp:260, atk:40, spd:0.35, range:32,  as:0.25, cost:55, sz:16},
   {id:'longbow',name:'长弓手', emoji:'🎯', hp:100, atk:50, spd:0.28, range:190, as:0.18, cost:50, sz:12, ranged:1},
   {id:'treb',   name:'投石机', emoji:'🏗️', hp:170, atk:95, spd:0.1,  range:270, as:0.07, cost:90, sz:24, ranged:1},
   {id:'pala',   name:'圣骑士', emoji:'✨', hp:350, atk:50, spd:0.38, range:35,  as:0.22, cost:80, sz:18},
- ]},
+ ],
+ turret:{name:'炮塔',emoji:'🏰',hp:500,atk:60,range:220,as:0.8,cost:240,sz:18,ranged:1},
+},
 {name:'火药时代',bg:'#14100a',gnd:'#3a2e1e',sky:'#1e180e',
  units:[
   {id:'musket', name:'火枪手', emoji:'🔫', hp:120, atk:55, spd:0.3,  range:190, as:0.15, cost:50, sz:13, ranged:1},
   {id:'pike',   name:'长枪兵', emoji:'🔱', hp:150, atk:35, spd:0.32, range:45,  as:0.25, cost:35, sz:13},
   {id:'cannon', name:'大炮',   emoji:'💣', hp:180, atk:110,spd:0.1,  range:290, as:0.06, cost:110,sz:24, ranged:1},
   {id:'cavalry',name:'骑兵',   emoji:'🐴', hp:240, atk:60, spd:0.55, range:30,  as:0.22, cost:70, sz:18},
- ]},
+ ],
+ turret:{name:'火炮台',emoji:'💣',hp:550,atk:80,range:250,as:0.7,cost:320,sz:18,ranged:1},
+},
 {name:'工业时代',bg:'#101010',gnd:'#2e2e2e',sky:'#141414',
  units:[
   {id:'rifle',  name:'步枪兵', emoji:'🔫', hp:160, atk:65, spd:0.32, range:210, as:0.18, cost:55, sz:13, ranged:1},
   {id:'mg',     name:'机枪手', emoji:'🔫', hp:140, atk:38, spd:0.22, range:170, as:0.6,  cost:70, sz:15, ranged:1},
   {id:'tank',   name:'坦克',   emoji:'🛡️', hp:480, atk:80, spd:0.25, range:60,  as:0.15, cost:140,sz:26},
   {id:'arty',   name:'火炮',   emoji:'💥', hp:120, atk:130,spd:0.08, range:340, as:0.06, cost:120,sz:22, ranged:1},
- ]},
+ ],
+ turret:{name:'机枪塔',emoji:'🔫',hp:600,atk:50,range:200,as:2.5,cost:400,sz:18,ranged:1},
+},
 {name:'现代战争',bg:'#08080e',gnd:'#1e1e2e',sky:'#0a0a14',
  units:[
   {id:'marine', name:'海军陆战队',emoji:'🎖️',hp:200, atk:75, spd:0.35, range:230, as:0.2,  cost:65, sz:14, ranged:1},
   {id:'rpg',    name:'火箭兵', emoji:'🚀', hp:140, atk:140,spd:0.28, range:250, as:0.12, cost:85, sz:13, ranged:1},
   {id:'mbt',    name:'主战坦克',emoji:'🛡️', hp:700, atk:100,spd:0.2,  range:65,  as:0.15, cost:180,sz:28},
   {id:'heli',   name:'直升机', emoji:'🚁', hp:280, atk:85, spd:0.45, range:200, as:0.25, cost:150,sz:20, ranged:1, flying:1},
- ]},
+ ],
+ turret:{name:'导弹塔',emoji:'🚀',hp:700,atk:120,range:300,as:0.6,cost:500,sz:18,ranged:1},
+},
 {name:'未来战争',bg:'#050510',gnd:'#141428',sky:'#06060e',
  units:[
   {id:'plasma', name:'等离子兵',emoji:'⚡', hp:220, atk:95, spd:0.38, range:240, as:0.22, cost:75, sz:14, ranged:1},
   {id:'mech',   name:'机甲战士',emoji:'🤖', hp:580, atk:110,spd:0.25, range:50,  as:0.2,  cost:170,sz:24},
   {id:'railgun',name:'电磁炮', emoji:'🔫', hp:170, atk:220,spd:0.1,  range:380, as:0.1,  cost:190,sz:20, ranged:1},
   {id:'drone',  name:'无人机群',emoji:'🛸', hp:200, atk:65, spd:0.6,  range:210, as:0.4,  cost:110,sz:16, ranged:1, flying:1},
- ]},
+ ],
+ turret:{name:'激光塔',emoji:'⚡',hp:800,atk:150,range:350,as:1.2,cost:600,sz:18,ranged:1},
+},
 ];
 
 // ============ STATE ============
@@ -212,9 +229,10 @@ function init(){
   gold:150, exp:0, kills:0, era:0,
   bhp:3000, rhp:3000, maxhp:3000,
   units:[], proj:[], parts:[],
+  tBlue:[], tRed:[],
   atkM:1, hpM:1, goldM:1,
   atkU:0, hpU:0, goldU:0,
-  aiT:0, aiInt:600,
+  aiT:0, aiInt:600, aiTurretT:0,
   over:false, pause:false, tick:0, speed:1,
   gameTime:0,
   selectedUnit:0,  // 当前选中的兵种索引
@@ -255,6 +273,34 @@ function spawnRed(id, ei){
  if(!t) return;
  const u=mkUnit(t,'red',RED_BASE_X);
  S.units.push(u);
+}
+
+// ============ TURRETS ============
+function turretMax(){ return Math.min(S.era+1, 5); }
+function turretCost(ei){
+ const idx=(ei!==undefined)?ei:S.era;
+ const base=ERAS[idx].turret.cost;
+ const arr=(ei===undefined||ei===S.era)?S.tBlue:S.tRed;
+ return Math.round(base*(1+arr.length*0.3));
+}
+
+function buildTurret(team){
+ const ei=S.era;
+ const tpl=ERAS[ei].turret;
+ const arr=team==='blue'?S.tBlue:S.tRed;
+ const max=turretMax();
+ if(arr.length>=max) return false;
+ const cost=team==='blue'?turretCost(ei):0;
+ if(team==='blue'&&S.gold<cost) return false;
+ if(team==='blue') S.gold-=cost;
+ const i=arr.length;
+ const x=team==='blue'?BLUE_BASE_X+60+i*45:RED_BASE_X-60-i*45;
+ const hp=Math.round(tpl.hp*S.hpM*(team==='red'?1+S.era*0.06:1));
+ const atk=Math.round(tpl.atk*S.atkM*(team==='red'?1+S.era*0.04:1));
+ const t={...tpl, team, x, y:GY, hp, mhp:hp, atk, cd:0, dead:false, flash:0};
+ arr.push(t);
+ if(team==='blue') addPart(x, GY-20, '#3fb950', 8, 5);
+ return true;
 }
 
 // ============ PROJECTILES ============
@@ -310,12 +356,18 @@ function update(){
    if(u.cd>0) u.cd--;
    if(u.atkAnim>0) u.atkAnim--;
 
-   // find nearest enemy
+   // find nearest enemy (unit or turret)
    let near=null, nd=Infinity;
    for(const e of S.units){
     if(e.dead||e.team===u.team) continue;
     const d=Math.abs(e.x-u.x);
     if(d<nd){nd=d;near=e;}
+   }
+   const etarr=u.team==='blue'?S.tRed:S.tBlue;
+   for(const t of etarr){
+    if(t.dead) continue;
+    const d=Math.abs(t.x-u.x);
+    if(d<nd){nd=d;near=t;}
    }
 
    const baseX=u.team==='blue'?RED_BASE_X:BLUE_BASE_X;
@@ -356,6 +408,26 @@ function update(){
    }
   }
 
+  // update turrets
+  for(const arr of [S.tBlue, S.tRed]){
+   for(const t of arr){
+    if(t.dead) continue;
+    if(t.cd>0) t.cd--;
+    if(t.flash>0) t.flash--;
+    // find nearest enemy unit within range
+    let tnear=null, tnd=Infinity;
+    for(const e of S.units){
+     if(e.dead||e.team===t.team) continue;
+     const d=Math.abs(e.x-t.x);
+     if(d<tnd){tnd=d;tnear=e;}
+    }
+    if(tnear&&tnd<=t.range&&t.cd<=0){
+     t.cd=Math.round(60/t.as);
+     fireProj(t, tnear);
+    }
+   }
+  }
+
   // projectiles
   for(const p of S.proj){
    if(!p.alive) continue;
@@ -375,8 +447,21 @@ function update(){
        if(u.hp<=0) killUnit(u, p.team);
       }
      }
+     // AOE also hits turrets
+     for(const arr of [S.tBlue, S.tRed]){
+      for(const t of arr){
+       if(t.dead||t.team===p.team) continue;
+       if(Math.abs(t.x-p.tx)<p.aoe){
+        t.hp-=p.dmg; t.flash=6;
+        addText(t.x, t.y-28, '-'+p.dmg, '#ff4444');
+        addPart(t.x, t.y-8, '#ffaa44', 5, 5);
+        if(t.hp<=0){t.dead=1;addPart(t.x,t.y-10,t.team==='blue'?'#58a6ff':'#f85149',8,5);}
+       }
+      }
+     }
      addPart(p.tx, p.ty, '#ff8844', 12, 6);
     } else {
+     let hit=false;
      for(const u of S.units){
       if(u.dead||u.team===p.team) continue;
       if(Math.abs(u.x-p.tx)<25){
@@ -384,7 +469,23 @@ function update(){
        addText(u.x, u.y-28, '-'+p.dmg, '#ff4444');
        addPart(u.x, u.y-8, '#ffaa44', 3, 3);
        if(u.hp<=0) killUnit(u, p.team);
-       break;
+       hit=true; break;
+      }
+     }
+     // also check turrets
+     if(!hit){
+      for(const arr of [S.tBlue, S.tRed]){
+       for(const t of arr){
+        if(t.dead||t.team===p.team) continue;
+        if(Math.abs(t.x-p.tx)<25){
+         t.hp-=p.dmg; t.flash=6;
+         addText(t.x, t.y-28, '-'+p.dmg, '#ff4444');
+         addPart(t.x, t.y-8, '#ffaa44', 3, 3);
+         if(t.hp<=0){t.dead=1;addPart(t.x,t.y-10,t.team==='blue'?'#58a6ff':'#f85149',8,5);}
+         hit=true; break;
+        }
+       }
+       if(hit) break;
       }
      }
     }
@@ -398,6 +499,8 @@ function update(){
   S.parts=S.parts.filter(p=>p.life>0);
   S.proj=S.proj.filter(p=>p.alive);
   S.units=S.units.filter(u=>!u.dead);
+  S.tBlue=S.tBlue.filter(t=>!t.dead);
+  S.tRed=S.tRed.filter(t=>!t.dead);
 
   // AI
   S.aiT++;
@@ -405,6 +508,12 @@ function update(){
    S.aiT=0;
    aiSpawn();
    S.aiInt=Math.max(300, 600-S.era*25);
+  }
+  // AI turret building
+  S.aiTurretT++;
+  if(S.aiTurretT>=800){
+   S.aiTurretT=0;
+   if(S.tRed.length<turretMax()) buildTurret('red');
   }
 
   // game over
@@ -475,6 +584,10 @@ function draw(){
   cx.beginPath(); cx.arc(p.x,p.y,3,0,Math.PI*2); cx.fill();
   cx.shadowBlur=0;
  }
+
+ // turrets (draw before units so they appear behind)
+ for(const t of S.tBlue) if(!t.dead) drawTurret(t);
+ for(const t of S.tRed) if(!t.dead) drawTurret(t);
 
  // units
  for(const u of S.units) if(!u.dead) drawUnit(u);
@@ -587,6 +700,54 @@ function drawUnit(u){
  }
 }
 
+function drawTurret(t){
+ const col=t.team==='blue'?'#58a6ff':'#f85149';
+ const dk=t.team==='blue'?'#1a2a4a':'#4a1a1a';
+ const bw=28, bh=36;
+
+ // flash
+ if(t.flash>0){
+  cx.fillStyle='rgba(255,255,255,0.25)';
+  cx.beginPath(); cx.arc(t.x,t.y-bh/2,22,0,Math.PI*2); cx.fill();
+ }
+
+ // base structure
+ cx.fillStyle=dk; cx.strokeStyle=col; cx.lineWidth=2;
+ cx.fillRect(t.x-bw/2,t.y-bh,bw,bh);
+ cx.strokeRect(t.x-bw/2,t.y-bh,bw,bh);
+
+ // battlements
+ for(let i=-1;i<=1;i+=2){
+  cx.fillRect(t.x+i*(bw/2-4)-4,t.y-bh-8,8,8);
+  cx.strokeRect(t.x+i*(bw/2-4)-4,t.y-bh-8,8,8);
+ }
+
+ // emoji
+ cx.font='18px serif'; cx.textAlign='center'; cx.textBaseline='middle';
+ cx.fillText(t.emoji,t.x,t.y-bh/2);
+ cx.textAlign='left'; cx.textBaseline='alphabetic';
+
+ // range indicator (subtle)
+ cx.strokeStyle=t.team==='blue'?'rgba(88,166,255,0.06)':'rgba(248,81,73,0.06)';
+ cx.lineWidth=1;
+ cx.beginPath(); cx.arc(t.x,t.y-10,t.range,0,Math.PI*2); cx.stroke();
+
+ // HP bar
+ if(t.hp<t.mhp){
+  const bw2=24, bh2=3;
+  const bx=t.x-bw2/2, by=t.y-bh-14;
+  cx.fillStyle='#21262d'; cx.fillRect(bx,by,bw2,bh2);
+  const r=t.hp/t.mhp;
+  cx.fillStyle=r>0.5?'#3fb950':r>0.25?'#d29922':'#f85149';
+  cx.fillRect(bx,by,bw2*r,bh2);
+ }
+
+ // label
+ cx.font='bold 9px sans-serif'; cx.fillStyle=col; cx.textAlign='center';
+ cx.fillText(t.name,t.x,t.y+12);
+ cx.textAlign='left';
+}
+
 function adj(hex,amt){
  let r=parseInt(hex.slice(1,3),16)+amt;
  let g=parseInt(hex.slice(3,5),16)+amt;
@@ -666,6 +827,13 @@ function updateUI(){
  gb.className='u-btn'+(S.gold<gc?' dis':'');
  gb.onclick=()=>{if(S.gold>=gc){S.gold-=gc;S.goldM*=1.3;S.goldU++;}};
 
+ const tc=turretCost();
+ const tmax=turretMax();
+ const tb=document.getElementById('btn-turret');
+ tb.textContent=`🏗️ 建造炮台 ${S.tBlue.length}/${tmax} (${tc}💰)`;
+ tb.className='u-btn'+(S.gold<tc||S.tBlue.length>=tmax?' dis':'');
+ tb.onclick=()=>buildTurret('blue');
+
  const sb=document.getElementById('speed-btn');
  sb.textContent=`⏩ x${S.speed}`;
  sb.onclick=()=>{S.speed=S.speed===1?2:S.speed===2?3:1;};
@@ -740,6 +908,7 @@ document.addEventListener('keydown',e=>{
  if(e.key==='w'||e.key==='W'){document.getElementById('btn-atk').click();e.preventDefault();}
  if(e.key==='e'||e.key==='E'){document.getElementById('btn-hp').click();e.preventDefault();}
  if(e.key==='r'||e.key==='R'){document.getElementById('btn-gold').click();e.preventDefault();}
+ if(e.key==='t'||e.key==='T'){document.getElementById('btn-turret').click();e.preventDefault();}
  // 选择兵种（不立即出兵，只选中）
  if(e.key==='Tab'){
   e.preventDefault();
