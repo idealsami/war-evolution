@@ -299,7 +299,7 @@ function update(){
    const baseX=u.team==='blue'?W-100:100;
    const db=Math.abs(u.x-baseX);
    const inR=near&&nd<=u.range;
-   const baseR=db<=u.range+35;
+   const baseR=db<=80;
 
    if(inR){
     // attack enemy
@@ -317,13 +317,13 @@ function update(){
      }
     }
     // stop and fight
-   } else if(!near||nd>u.range*1.8){
-    // move
+  } else if(!inR){
+   // move
     u.x+=u.spd*(u.team==='blue'?1:-1);
    }
 
    // attack base
-   if(!inR&&baseR&&(!near||nd>u.range)){
+   if(!inR && baseR){
     if(u.cd<=0){
      u.cd=Math.round(60/u.as);
      u.atkAnim=8;
@@ -466,14 +466,14 @@ function draw(){
  for(const p of S.parts){
   const a=p.life/p.ml;
   if(p.text){
-   cx.font=`bold ${p.size}px sans-serif`;
-   cx.fillStyle=p.color; cx.globalAlpha=a;
-   cx.fillText(p.text,p.x-15,p.y); cx.globalAlpha=1;
-  } else {
-   cx.fillStyle=p.color; cx.globalAlpha=a;
-   cx.beginPath(); cx.arc(p.x,p.y,p.size*a,0,Math.PI*2); cx.fill();
-   cx.globalAlpha=1;
-  }
+  cx.font=`bold ${p.sz}px sans-serif`;
+  cx.fillStyle=p.col; cx.globalAlpha=a;
+  cx.fillText(p.text,p.x-15,p.y); cx.globalAlpha=1;
+ } else {
+  cx.fillStyle=p.col; cx.globalAlpha=a;
+  cx.beginPath(); cx.arc(p.x,p.y,p.sz*a,0,Math.PI*2); cx.fill();
+  cx.globalAlpha=1;
+ }
  }
 }
 
