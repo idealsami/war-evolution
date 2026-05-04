@@ -198,7 +198,7 @@ function init(){
   units:[], proj:[], parts:[],
   atkM:1, hpM:1, goldM:1,
   atkU:0, hpU:0, goldU:0,
-  aiT:0, aiInt:360,  // AI spawn interval (slower)
+  aiT:0, aiInt:600,  // AI spawn interval (slower)
   over:false, pause:false, tick:0, speed:1,
   gameTime:0,
  };
@@ -316,14 +316,8 @@ function update(){
       if(near.hp<=0) killUnit(near, u.team);
      }
     }
-    // stop and fight
-  } else if(!inR){
-   // move
-    u.x+=u.spd*(u.team==='blue'?1:-1);
-   }
-
-   // attack base
-   if(!inR && baseR){
+   } else if(baseR){
+    // at enemy base — stop and attack it
     if(u.cd<=0){
      u.cd=Math.round(60/u.as);
      u.atkAnim=8;
@@ -334,6 +328,9 @@ function update(){
       else {S.bhp-=u.atk; addText(100,GY-55,'-'+u.atk,'#58a6ff');addPart(100,GY-15,'#58a6ff',5,5);}
      }
     }
+   } else {
+    // move toward enemy base
+    u.x+=u.spd*(u.team==='blue'?1:-1);
    }
   }
 
@@ -387,7 +384,7 @@ function update(){
   if(S.aiT>=S.aiInt){
    S.aiT=0;
    aiSpawn();
-   S.aiInt=Math.max(180, 360-S.era*18);
+   S.aiInt=Math.max(300, 600-S.era*25);
   }
 
   // game over
