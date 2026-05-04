@@ -459,6 +459,12 @@ function update(){
        }
       }
      }
+     // AOE also hits base
+     if(p.team==='blue'&&Math.abs(p.tx-RED_BASE_X)<p.aoe+60){
+      S.rhp-=p.dmg; addText(RED_BASE_X,GY-55,'-'+p.dmg,'#f85149');addPart(RED_BASE_X,GY-15,'#f85149',5,5);
+     } else if(p.team==='red'&&Math.abs(p.tx-BLUE_BASE_X)<p.aoe+60){
+      S.bhp-=p.dmg; addText(BLUE_BASE_X,GY-55,'-'+p.dmg,'#58a6ff');addPart(BLUE_BASE_X,GY-15,'#58a6ff',5,5);
+     }
      addPart(p.tx, p.ty, '#ff8844', 12, 6);
     } else {
      let hit=false;
@@ -486,6 +492,14 @@ function update(){
         }
        }
        if(hit) break;
+      }
+      // check if projectile hit enemy base
+      if(!hit){
+       if(p.team==='blue'&&Math.abs(p.tx-RED_BASE_X)<80){
+        S.rhp-=p.dmg; addText(RED_BASE_X,GY-55,'-'+p.dmg,'#f85149');addPart(RED_BASE_X,GY-15,'#f85149',5,5); hit=true;
+       } else if(p.team==='red'&&Math.abs(p.tx-BLUE_BASE_X)<80){
+        S.bhp-=p.dmg; addText(BLUE_BASE_X,GY-55,'-'+p.dmg,'#58a6ff');addPart(BLUE_BASE_X,GY-15,'#58a6ff',5,5); hit=true;
+       }
       }
      }
     }
