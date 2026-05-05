@@ -454,12 +454,12 @@ function drawUnit(u) {
 }
 
 function drawTurret(t) {
-  // Draw range circle (subtle)
+  // Draw range rectangle (subtle)
   ctx.strokeStyle = t.team === 'red' ? 'rgba(255,100,100,0.12)' : 'rgba(255,200,0,0.12)';
   ctx.fillStyle = t.team === 'red' ? 'rgba(255,100,100,0.03)' : 'rgba(255,200,0,0.03)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(t.x, t.y, t.range, 0, Math.PI*2);
+  ctx.rect(t.x - t.range, t.y - 20, t.range * 2, 40); // Horizontal range rectangle
   ctx.fill();
   ctx.stroke();
 
@@ -632,7 +632,7 @@ function updateTurret(t, dt) {
   let closest = null, minDist = Infinity;
   for (const e of targets) {
     if (e.state === 'die') continue;
-    const d = Math.hypot(e.x - t.x, LANE_Y - t.y);
+    const d = Math.abs(e.x - t.x); // Horizontal distance only
     if (d <= t.range && d < minDist) { minDist = d; closest = e; }
   }
   if (!closest) return;
