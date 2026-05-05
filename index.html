@@ -17,10 +17,11 @@ canvas { display:block; margin:0 auto; }
 }
 #topBar {
   display:flex; justify-content:space-between; align-items:center;
-  padding:4px 8px;
+  padding:4px 8px; gap:12px; flex-wrap:wrap;
 }
 #goldDisplay { color:#ffd700; font-size:20px; font-weight:bold; }
 #eraDisplay { color:#00e5ff; font-size:18px; font-weight:bold; }
+#xpDisplay { color:#aa88ff; font-size:16px; font-weight:bold; }
 #hpBar { display:flex; align-items:center; gap:8px; }
 #hpBar span { color:#fff; font-size:14px; }
 #hpBar .bar { flex:1; height:14px; background:#333; border-radius:7px; overflow:hidden; max-width:120px; }
@@ -58,6 +59,18 @@ canvas { display:block; margin:0 auto; }
 }
 #towerBtn:hover { border-color:#ffaa00; }
 #towerBtn:disabled { opacity:0.4; cursor:default; }
+#attrRow {
+  display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
+}
+.attrBtn {
+  padding:8px 14px; border:2px solid #44cc88; border-radius:8px;
+  background:linear-gradient(180deg,#1a3a2a,#0a2e1a);
+  color:#88ffbb; font-size:14px; cursor:pointer;
+  transition:all 0.15s;
+}
+.attrBtn:hover { border-color:#66ffaa; background:linear-gradient(180deg,#2a4a3a,#1a3e2a); }
+.attrBtn:disabled { opacity:0.4; cursor:default; }
+.attrBtn .lv { color:#ffd700; font-size:12px; }
 #notif {
   position:fixed; top:20px; left:50%; transform:translateX(-50%);
   color:#ffd700; font-size:22px; font-weight:bold;
@@ -82,6 +95,7 @@ canvas { display:block; margin:0 auto; }
 <div id="ui">
   <div id="topBar">
     <div id="goldDisplay">💰 100</div>
+    <div id="xpDisplay">⭐ XP: 0/80</div>
     <div id="eraDisplay">🏛 石器时代</div>
     <div id="hpBar">
       <span>🏠 基地</span>
@@ -93,6 +107,7 @@ canvas { display:block; margin:0 auto; }
     </div>
   </div>
   <div id="btnRow"></div>
+  <div id="attrRow"></div>
   <div id="upgradeRow">
     <button class="upBtn" id="eraBtn" onclick="upgradeEra()">⏩ 进化时代 <span id="eraCost"></span></button>
     <button id="towerBtn" onclick="buildTower()">🏗 建造炮台 <span id="towerCost"></span></button>
@@ -179,14 +194,32 @@ const TURRETS = [
   {name:'离子炮',icon:'⚡',atk:150,range:230,spd:0.7,color:'#00CED1'},
 ];
 
+// ============ XP THRESHOLDS PER ERA ============
+const XP_THRESHOLDS = [80, 180, 320, 500, 750, 1100, 99999];
+
+// ============ ATTRIBUTE UPGRADE SYSTEM ============
+// Each attribute has levels, cost scales per level
+const ATTRS = [
+  { key:'hp',  name:'生命', icon:'❤️', baseCost:40, costScale:1.5, perLevel:0.12 },
+  { key:'atk', name:'攻击', icon:'⚔️', baseCost:50, costScale:1.5, perLevel:0.10 },
+  { key:'spd', name:'速度', icon:'💨', baseCost:30, costScale:1.4, perLevel:0.08 },
+];
+const ATTR_MAX_LEVEL = 10;
+
+function attrCost(attr, level) {
+  return Math.floor(attr.baseCost * Math.pow(attr.costScale, level));
+}
+
 // ============ GAME STATE ============
 let gold, era, myBaseHp, enemyBaseHp, maxBaseHp;
 let myUnits, enemyUnits, turrets, projectiles, particles;
 let spawnTimers, selectedUnit;
 let lastTime, gameOverFlag;
-let towerLevel; // 0-5
+let towerLevel;
 let towerCost;
 let kills;
+let xp;
+let attrLevels; // { hp: 0, atk: 0, spd: 0 }
 
 function initState() {
   gold = 100; era = 0; maxBaseHp = 500;
@@ -195,6 +228,8 @@ function initState() {
   spawnTimers = {};
   selectedUnit = 0; lastTime = 0; gameOverFlag = false;
   towerLevel = 0; towerCost = 80; kills = 0;
+  xp = 0;
+  attrLevels = { hp: 0, atk: 0, spd: 0 };
 }
 initState();
 
@@ -205,7 +240,11 @@ function baseXEnemy() { return W - 60; }
 function eraData() { return ERAS[era]; }
 function turretData() { return TURRETS[Math.min(era, TURRETS.length-1)]; }
 
-function eraUpgradeCost() { return 150 + era * 120; }
+function xpToNext() { return XP_THRESHOLDS[Math.min(era, XP_THRESHOLDS.length-1)]; }
+
+function getAttrMultiplier(key) {
+  return 1 + (attrLevels[key] || 0) * ATTRS.find(a => a.key === key).perLevel;
+}
 
 function showNotif(txt) {
   const el = document.getElementById('notif');
@@ -224,15 +263,24 @@ function addParticle(x, y, color, count=5) {
 
 // ============ UNIT CLASS ============
 function createUnit(template, team) {
+  // Apply attribute multipliers to player units
+  let hp = template.hp;
+  let atk = template.atk;
+  let spd = template.spd;
+  if (team === 'my') {
+    hp = Math.floor(hp * getAttrMultiplier('hp'));
+    atk = Math.floor(atk * getAttrMultiplier('atk'));
+    spd = Math.floor(spd * getAttrMultiplier('spd'));
+  }
   return {
     ...template,
+    hp, maxHp: hp, atk, spd,
     x: team === 'my' ? BASE_X_MY + 40 : baseXEnemy() - 40,
-    hp: template.hp, maxHp: template.hp,
     team,
     atkTimer: 0,
     atkCooldown: 1.0,
     target: null,
-    state: 'move', // move, attack, die
+    state: 'move',
     dieTimer: 0,
   };
 }
@@ -271,14 +319,27 @@ function buildTower() {
   showNotif(`炮台建造完成! (${towerLevel}/5)`);
 }
 
-// ============ ERA UPGRADE ============
+// ============ ERA UPGRADE (XP-based) ============
 function upgradeEra() {
   if (era >= ERAS.length - 1) { showNotif('已达最高时代!'); return; }
-  const cost = eraUpgradeCost();
-  if (gold < cost) { showNotif('金币不足!'); return; }
-  gold -= cost;
+  const need = xpToNext();
+  if (xp < need) { showNotif(`经验不足! 需要 ${need} XP`); return; }
+  xp -= need;
   era++;
   showNotif(`进化到 ${ERAS[era].name}!`);
+  rebuildUI();
+}
+
+// ============ ATTRIBUTE UPGRADE ============
+function upgradeAttr(key) {
+  const attr = ATTRS.find(a => a.key === key);
+  const lv = attrLevels[key];
+  if (lv >= ATTR_MAX_LEVEL) { showNotif(`${attr.name}已达最高等级!`); return; }
+  const cost = attrCost(attr, lv);
+  if (gold < cost) { showNotif('金币不足!'); return; }
+  gold -= cost;
+  attrLevels[key]++;
+  showNotif(`${attr.name}升级到 Lv.${attrLevels[key]}!`);
   rebuildUI();
 }
 
@@ -294,8 +355,23 @@ function rebuildUI() {
     btn.onclick = () => { selectedUnit = i; rebuildUI(); };
     btnRow.appendChild(btn);
   });
+
+  // Attribute upgrade buttons
+  const attrRow = document.getElementById('attrRow');
+  attrRow.innerHTML = '';
+  ATTRS.forEach(attr => {
+    const lv = attrLevels[attr.key];
+    const cost = lv < ATTR_MAX_LEVEL ? attrCost(attr, lv) : '---';
+    const btn = document.createElement('button');
+    btn.className = 'attrBtn';
+    btn.disabled = lv >= ATTR_MAX_LEVEL;
+    btn.innerHTML = `${attr.icon} ${attr.name} <span class="lv">Lv.${lv}</span> 💰${cost}`;
+    btn.onclick = () => upgradeAttr(attr.key);
+    attrRow.appendChild(btn);
+  });
+
   document.getElementById('eraDisplay').textContent = `${eraData().icon} ${eraData().name}`;
-  document.getElementById('eraCost').textContent = era < ERAS.length-1 ? `💰${eraUpgradeCost()}` : 'MAX';
+  document.getElementById('eraCost').textContent = era < ERAS.length-1 ? `⭐${xpToNext()}XP` : 'MAX';
   document.getElementById('eraBtn').disabled = era >= ERAS.length-1;
   document.getElementById('towerCost').textContent = towerLevel < 5 ? `💰${towerCost}` : 'MAX';
   document.getElementById('towerBtn').disabled = towerLevel >= 5;
@@ -305,22 +381,19 @@ function rebuildUI() {
 function drawBase(x, hp, maxHp, isEnemy) {
   const ratio = hp / maxHp;
   const bw = 40, bh = 60;
-  const bx = isEnemy ? x - bw/2 : x - bw/2;
+  const bx = x - bw/2;
   const by = LANE_Y - bh/2;
 
-  // base body
   ctx.fillStyle = isEnemy ? '#cc3333' : '#3366cc';
   ctx.fillRect(bx, by, bw, bh);
   ctx.strokeStyle = isEnemy ? '#ff6666' : '#6699ff';
   ctx.lineWidth = 2;
   ctx.strokeRect(bx, by, bw, bh);
 
-  // flag
   ctx.fillStyle = isEnemy ? '#ff4444' : '#4488ff';
   ctx.fillRect(x-2, by-25, 4, 25);
   ctx.fillRect(x+2, by-25, 18, 12);
 
-  // hp bar
   const hpW = 50;
   ctx.fillStyle = '#333';
   ctx.fillRect(x - hpW/2, by - 12, hpW, 8);
@@ -337,7 +410,6 @@ function drawUnit(u) {
 
   const sz = u.size || 18;
 
-  // body circle
   ctx.fillStyle = u.team === 'my' ? '#4488ff' : '#ff4444';
   ctx.beginPath();
   ctx.arc(u.x, LANE_Y, sz/2, 0, Math.PI*2);
@@ -346,14 +418,12 @@ function drawUnit(u) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // icon
   ctx.font = `${sz}px serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#fff';
   ctx.fillText(u.icon, u.x, LANE_Y);
 
-  // hp bar
   if (u.hp < u.maxHp && u.state !== 'die') {
     const hpW = sz * 1.5;
     const ratio = u.hp / u.maxHp;
@@ -367,19 +437,15 @@ function drawUnit(u) {
 }
 
 function drawTurret(t) {
-  const td = turretData();
-  // base
   ctx.fillStyle = t.color;
   ctx.fillRect(t.x - 12, t.y - 12, 24, 24);
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 1.5;
   ctx.strokeRect(t.x - 12, t.y - 12, 24, 24);
-  // icon
   ctx.font = '16px serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(t.icon, t.x, t.y);
-  // range indicator (subtle)
   ctx.strokeStyle = 'rgba(255,255,255,0.1)';
   ctx.beginPath();
   ctx.arc(t.x, t.y, t.range, 0, Math.PI*2);
@@ -391,7 +457,6 @@ function drawProjectile(p) {
   ctx.beginPath();
   ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
   ctx.fill();
-  // trail
   ctx.strokeStyle = p.color;
   ctx.globalAlpha = 0.3;
   ctx.lineWidth = 2;
@@ -414,7 +479,6 @@ function drawParticles() {
 }
 
 function drawLane() {
-  // main lane
   ctx.strokeStyle = 'rgba(255,255,255,0.15)';
   ctx.lineWidth = 2;
   ctx.setLineDash([10, 10]);
@@ -424,7 +488,6 @@ function drawLane() {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // ground decorations
   for (let x = 100; x < W - 100; x += 80) {
     ctx.fillStyle = 'rgba(255,255,255,0.05)';
     ctx.fillRect(x, LANE_Y + 25 + Math.sin(x*0.1)*5, 30, 3);
@@ -450,13 +513,11 @@ function updateUnit(u, enemies, dt) {
 
   const { target, dist } = findTarget(u, enemies);
 
-  // Check if reached enemy base
   const atBase = u.team === 'my'
     ? u.x >= baseXEnemy() - 50
     : u.x <= BASE_X_MY + 50;
 
   if (atBase && !target) {
-    // Attack base
     u.state = 'attack';
     u.atkTimer += dt;
     if (u.atkTimer >= u.atkCooldown) {
@@ -473,7 +534,6 @@ function updateUnit(u, enemies, dt) {
   }
 
   if (target && dist <= u.range) {
-    // Attack enemy
     u.state = 'attack';
     u.atkTimer += dt;
     if (u.atkTimer >= u.atkCooldown) {
@@ -481,7 +541,6 @@ function updateUnit(u, enemies, dt) {
       target.hp -= u.atk;
       addParticle(target.x, LANE_Y, '#ffaa00', 3);
 
-      // Ranged attack visual
       if (u.range > 30) {
         const dx = target.x - u.x;
         projectiles.push({
@@ -497,18 +556,19 @@ function updateUnit(u, enemies, dt) {
         target.state = 'die';
         target.dieTimer = 0;
         addParticle(target.x, LANE_Y, '#ff0000', 8);
-        // Reward gold for kills
         if (target.team === 'enemy') {
           gold += Math.floor(target.maxHp * 0.15);
+          // XP from kills - scaled by enemy maxHp
+          const xpGain = Math.max(3, Math.floor(target.maxHp * 0.08));
+          xp += xpGain;
           kills++;
         }
       }
     }
   } else {
-    // Move - smooth linear movement
     u.state = 'move';
     const dir = u.team === 'my' ? 1 : -1;
-    u.x += dir * u.spd * dt; // smooth px/sec movement
+    u.x += dir * u.spd * dt;
   }
 
   return true;
@@ -520,7 +580,6 @@ function updateTurret(t, dt) {
   if (t.atkTimer < 1.0 / t.spd) return;
   t.atkTimer = 0;
 
-  // Find closest enemy in range
   let closest = null, minDist = Infinity;
   for (const e of enemyUnits) {
     if (e.state === 'die') continue;
@@ -543,6 +602,8 @@ function updateTurret(t, dt) {
     closest.dieTimer = 0;
     addParticle(closest.x, LANE_Y, '#ff0000', 8);
     gold += Math.floor(closest.maxHp * 0.15);
+    const xpGain = Math.max(3, Math.floor(closest.maxHp * 0.08));
+    xp += xpGain;
     kills++;
   }
 }
@@ -570,7 +631,7 @@ function updateParticles(dt) {
 // ============ ENEMY SPAWN ============
 let enemySpawnTimer = 0;
 function getEnemySpawnInterval() {
-  return 3.5 - era * 0.15; // slower base spawn, scales with era
+  return 3.5 - era * 0.15;
 }
 
 // ============ MAIN LOOP ============
@@ -609,6 +670,8 @@ function gameLoop(timestamp) {
 
   // Update UI
   document.getElementById('goldDisplay').textContent = `💰 ${Math.floor(gold)}`;
+  const need = xpToNext();
+  document.getElementById('xpDisplay').textContent = `⭐ XP: ${Math.floor(xp)}/${need}`;
   document.getElementById('myHpFill').style.width = `${(myBaseHp/maxBaseHp)*100}%`;
   document.getElementById('enemyHpFill').style.width = `${(enemyBaseHp/maxBaseHp)*100}%`;
 
@@ -616,45 +679,42 @@ function gameLoop(timestamp) {
 }
 
 function draw() {
-  // Background
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, W, H);
 
-  // Sky gradient
   const grad = ctx.createLinearGradient(0, 0, 0, LANE_Y - 40);
   grad.addColorStop(0, '#0a0a1e');
   grad.addColorStop(1, '#1a1a3e');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, LANE_Y - 40);
 
-  // Ground
   ctx.fillStyle = '#1a2a1a';
   ctx.fillRect(0, LANE_Y + 30, W, H - LANE_Y - 30);
 
   drawLane();
 
-  // Draw turrets
   turrets.forEach(drawTurret);
 
-  // Draw bases
   drawBase(BASE_X_MY, myBaseHp, maxBaseHp, false);
   drawBase(baseXEnemy(), enemyBaseHp, maxBaseHp, true);
 
-  // Draw units (back to front by x)
   const allUnits = [...myUnits, ...enemyUnits].sort((a,b) => a.y - b.y);
   allUnits.forEach(drawUnit);
 
-  // Draw projectiles
   projectiles.forEach(drawProjectile);
 
-  // Draw particles
   drawParticles();
 
-  // Kill counter
+  // HUD
   ctx.fillStyle = '#aaa';
   ctx.font = '14px sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText(`击杀: ${kills}`, 10, 20);
+
+  // Attribute level display on canvas
+  ctx.fillStyle = '#88ffbb';
+  ctx.font = '12px sans-serif';
+  ctx.fillText(`❤️Lv.${attrLevels.hp} ⚔️Lv.${attrLevels.atk} 💨Lv.${attrLevels.spd}`, 10, 38);
 }
 
 function endGame(won) {
