@@ -309,10 +309,11 @@ function buildTower() {
   towerLevel++;
   const td = turretData();
   const baseTop = LANE_Y - 30;
-  const yPos = baseTop - 20 - (towerLevel - 1) * 40;
+  const dynamicRange = (W - 120) * 0.15;
+  const yPos = baseTop - 15 - (towerLevel - 1) * 35;
   turrets.push({
     x: BASE_X_MY + 50, y: yPos,
-    team: 'my', ...td,
+    team: 'my', ...td, range: dynamicRange,
     maxHp: td.hp,
     atkTimer: 0, level: towerLevel
   });
@@ -324,11 +325,12 @@ function buildEnemyTower() {
   if (enemyTurrets.length >= Math.min(era + 1, 5)) return;
   const td = TURRETS[Math.min(era, TURRETS.length - 1)];
   const baseTop = LANE_Y - 30;
+  const dynamicRange = (W - 120) * 0.15;
   const idx = enemyTurrets.length;
-  const yPos = baseTop - 20 - idx * 40;
+  const yPos = baseTop - 15 - idx * 35;
   enemyTurrets.push({
     x: baseXEnemy() - 50, y: yPos,
-    team: 'red', ...td,
+    team: 'red', ...td, range: dynamicRange,
     maxHp: td.hp,
     atkTimer: 0, level: idx + 1
   });
