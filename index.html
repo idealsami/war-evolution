@@ -1,1 +1,701 @@
-File unchanged since last read. The content from the earlier read_file result in this conversation is still current — refer to that instead of re-reading.
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>战争进化史</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#1a1a2e; overflow:hidden; font-family:'Microsoft YaHei',sans-serif; user-select:none; }
+canvas { display:block; margin:0 auto; }
+#ui {
+  position:fixed; bottom:0; left:0; right:0;
+  background:linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.7));
+  padding:10px 15px;
+  display:flex; flex-direction:column; gap:8px;
+  z-index:10;
+}
+#topBar {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:4px 8px;
+}
+#goldDisplay { color:#ffd700; font-size:20px; font-weight:bold; }
+#eraDisplay { color:#00e5ff; font-size:18px; font-weight:bold; }
+#hpBar { display:flex; align-items:center; gap:8px; }
+#hpBar span { color:#fff; font-size:14px; }
+#hpBar .bar { flex:1; height:14px; background:#333; border-radius:7px; overflow:hidden; max-width:120px; }
+#hpBar .fill { height:100%; background:linear-gradient(90deg,#ff4444,#ff8800); border-radius:7px; transition:width 0.3s; }
+#btnRow {
+  display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+}
+.btn {
+  padding:10px 18px; border:2px solid #555; border-radius:8px;
+  background:linear-gradient(180deg,#2a2a4a,#1a1a2e);
+  color:#fff; font-size:16px; cursor:pointer;
+  transition:all 0.15s;
+  min-width:80px; text-align:center;
+}
+.btn:hover { border-color:#00e5ff; background:linear-gradient(180deg,#3a3a6a,#2a2a4e); }
+.btn:active { transform:scale(0.95); }
+.btn.active { border-color:#ffd700; box-shadow:0 0 10px rgba(255,215,0,0.4); }
+.btn .cost { color:#ffd700; font-size:13px; display:block; margin-top:2px; }
+.btn .key { color:#aaa; font-size:12px; }
+#upgradeRow {
+  display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
+}
+.upBtn {
+  padding:8px 16px; border:2px solid #8855ff; border-radius:8px;
+  background:linear-gradient(180deg,#2a1a4a,#1a0a2e);
+  color:#cc99ff; font-size:15px; cursor:pointer;
+  transition:all 0.15s;
+}
+.upBtn:hover { border-color:#aa77ff; background:linear-gradient(180deg,#3a2a6a,#2a1a4e); }
+.upBtn:disabled { opacity:0.4; cursor:default; }
+#towerBtn {
+  padding:8px 16px; border:2px solid #ff8800; border-radius:8px;
+  background:linear-gradient(180deg,#4a2a0a,#2e1a00);
+  color:#ffaa44; font-size:15px; cursor:pointer;
+}
+#towerBtn:hover { border-color:#ffaa00; }
+#towerBtn:disabled { opacity:0.4; cursor:default; }
+#notif {
+  position:fixed; top:20px; left:50%; transform:translateX(-50%);
+  color:#ffd700; font-size:22px; font-weight:bold;
+  text-shadow:0 0 10px rgba(255,215,0,0.8);
+  pointer-events:none; opacity:0; transition:opacity 0.5s;
+  z-index:20;
+}
+#gameOver {
+  position:fixed; inset:0; background:rgba(0,0,0,0.85);
+  display:none; justify-content:center; align-items:center;
+  flex-direction:column; z-index:30;
+}
+#gameOver h1 { font-size:48px; color:#ffd700; margin-bottom:20px; }
+#gameOver button {
+  padding:15px 40px; font-size:24px; border:2px solid #ffd700;
+  background:#2a2a4a; color:#ffd700; border-radius:12px; cursor:pointer;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="topBar">
+    <div id="goldDisplay">💰 100</div>
+    <div id="eraDisplay">🏛 石器时代</div>
+    <div id="hpBar">
+      <span>🏠 基地</span>
+      <div class="bar"><div class="fill" id="myHpFill" style="width:100%"></div></div>
+    </div>
+    <div id="hpBar">
+      <span>敌方</span>
+      <div class="bar"><div class="fill" id="enemyHpFill" style="width:100%"></div></div>
+    </div>
+  </div>
+  <div id="btnRow"></div>
+  <div id="upgradeRow">
+    <button class="upBtn" id="eraBtn" onclick="upgradeEra()">⏩ 进化时代 <span id="eraCost"></span></button>
+    <button id="towerBtn" onclick="buildTower()">🏗 建造炮台 <span id="towerCost"></span></button>
+  </div>
+</div>
+<div id="notif"></div>
+<div id="gameOver">
+  <h1 id="goText"></h1>
+  <button onclick="restart()">🔄 再来一局</button>
+</div>
+
+<script>
+// ============ CANVAS SETUP ============
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, LANE_Y;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  LANE_Y = H * 0.5;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ============ ERA DEFINITIONS ============
+const ERAS = [
+  { name:'石器时代', icon:'🏛', color:'#8B7355',
+    units:[
+      {name:'棍棒兵',icon:'🪵',hp:30,atk:5,spd:0.6,cost:15,range:20,size:18},
+      {name:'投石手',icon:'🪨',hp:20,atk:8,spd:0.5,cost:25,range:80,size:16},
+      {name:'野兽骑',icon:'🐗',hp:50,atk:10,spd:0.8,cost:40,range:22,size:22},
+    ]},
+  { name:'青铜时代', icon:'⚔️', color:'#CD7F32',
+    units:[
+      {name:'铜矛兵',icon:'🔱',hp:50,atk:10,spd:0.65,cost:25,range:25,size:18},
+      {name:'弓箭手',icon:'🏹',hp:30,atk:15,spd:0.55,cost:35,range:100,size:16},
+      {name:'战车',icon:'🐎',hp:80,atk:18,spd:0.9,cost:55,range:28,size:24},
+    ]},
+  { name:'铁器时代', icon:'🛡', color:'#708090',
+    units:[
+      {name:'铁甲兵',icon:'🛡',hp:80,atk:15,spd:0.6,cost:35,range:22,size:20},
+      {name:'弩手',icon:'🏹',hp:40,atk:22,spd:0.5,cost:45,range:120,size:17},
+      {name:'骑兵',icon:'🐴',hp:120,atk:25,spd:1.0,cost:70,range:30,size:26},
+      {name:'攻城车',icon:'🏗',hp:150,atk:35,spd:0.35,cost:90,range:40,size:30},
+    ]},
+  { name:'中世纪', icon:'🏰', color:'#4a6fa5',
+    units:[
+      {name:'骑士',icon:'⚔️',hp:120,atk:25,spd:0.7,cost:45,range:28,size:22},
+      {name:'火枪手',icon:'🔫',hp:50,atk:35,spd:0.5,cost:55,range:140,size:18},
+      {name:'重骑兵',icon:'🐎',hp:180,atk:40,spd:0.85,cost:80,range:32,size:28},
+      {name:'投石机',icon:'🪨',hp:100,atk:50,spd:0.3,cost:100,range:160,size:32},
+    ]},
+  { name:'火药时代', icon:'💣', color:'#8B4513',
+    units:[
+      {name:'火枪兵',icon:'🔫',hp:70,atk:40,spd:0.55,cost:50,range:140,size:18},
+      {name:'炮兵',icon:'💣',hp:60,atk:60,spd:0.35,cost:70,range:180,size:24},
+      {name:'龙骑兵',icon:'🐉',hp:200,atk:50,spd:0.8,cost:90,range:35,size:28},
+      {name:'战列舰',icon:'🚢',hp:300,atk:80,spd:0.25,cost:130,range:200,size:36},
+    ]},
+  { name:'现代战争', icon:'🚁', color:'#2F4F4F',
+    units:[
+      {name:'步兵',icon:'🔫',hp:100,atk:55,spd:0.6,cost:55,range:150,size:18},
+      {name:'坦克',icon:'🛡',hp:350,atk:80,spd:0.5,cost:100,range:170,size:32},
+      {name:'直升机',icon:'🚁',hp:200,atk:70,spd:1.2,cost:120,range:190,size:28},
+      {name:'导弹车',icon:'🚀',hp:150,atk:120,spd:0.3,cost:150,range:220,size:30},
+    ]},
+  { name:'未来科技', icon:'🤖', color:'#00CED1',
+    units:[
+      {name:'机甲兵',icon:'🤖',hp:200,atk:80,spd:0.7,cost:80,range:160,size:24},
+      {name:'激光炮',icon:'⚡',hp:120,atk:150,spd:0.4,cost:130,range:250,size:28},
+      {name:'飞碟',icon:'🛸',hp:300,atk:100,spd:1.4,cost:160,range:200,size:30},
+      {name:'歼星舰',icon:'🌟',hp:500,atk:200,spd:0.2,cost:250,range:280,size:40},
+    ]},
+];
+
+// ============ TURRET DEFINITIONS ============
+const TURRETS = [
+  {name:'木桩',icon:'🪵',atk:8,range:80,spd:1.5,color:'#8B7355'},
+  {name:'铜哨塔',icon:'🏛',atk:15,range:100,spd:1.3,color:'#CD7F32'},
+  {name:'铁箭塔',icon:'🗼',atk:25,range:120,spd:1.1,color:'#708090'},
+  {name:'石堡',icon:'🏰',atk:40,range:140,spd:1.0,color:'#4a6fa5'},
+  {name:'炮台',icon:'💣',atk:60,range:160,spd:0.9,color:'#8B4513'},
+  {name:'导弹塔',icon:'🚀',atk:90,range:190,spd:0.8,color:'#2F4F4F'},
+  {name:'离子炮',icon:'⚡',atk:150,range:230,spd:0.7,color:'#00CED1'},
+];
+
+// ============ GAME STATE ============
+let gold, era, myBaseHp, enemyBaseHp, maxBaseHp;
+let myUnits, enemyUnits, turrets, projectiles, particles;
+let spawnTimers, selectedUnit;
+let lastTime, gameOverFlag;
+let towerLevel; // 0-5
+let towerCost;
+let kills;
+
+function initState() {
+  gold = 100; era = 0; maxBaseHp = 500;
+  myBaseHp = maxBaseHp; enemyBaseHp = maxBaseHp;
+  myUnits = []; enemyUnits = []; turrets = []; projectiles = []; particles = [];
+  spawnTimers = {};
+  selectedUnit = 0; lastTime = 0; gameOverFlag = false;
+  towerLevel = 0; towerCost = 80; kills = 0;
+}
+initState();
+
+// ============ HELPERS ============
+const BASE_X_MY = 60;
+function baseXEnemy() { return W - 60; }
+
+function eraData() { return ERAS[era]; }
+function turretData() { return TURRETS[Math.min(era, TURRETS.length-1)]; }
+
+function eraUpgradeCost() { return 150 + era * 120; }
+
+function showNotif(txt) {
+  const el = document.getElementById('notif');
+  el.textContent = txt; el.style.opacity = 1;
+  setTimeout(() => el.style.opacity = 0, 1500);
+}
+
+function addParticle(x, y, color, count=5) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y, vx:(Math.random()-0.5)*3, vy:(Math.random()-0.5)*3,
+      life:0.5+Math.random()*0.5, color, r:2+Math.random()*3
+    });
+  }
+}
+
+// ============ UNIT CLASS ============
+function createUnit(template, team) {
+  return {
+    ...template,
+    x: team === 'my' ? BASE_X_MY + 40 : baseXEnemy() - 40,
+    hp: template.hp, maxHp: template.hp,
+    team,
+    atkTimer: 0,
+    atkCooldown: 1.0,
+    target: null,
+    state: 'move', // move, attack, die
+    dieTimer: 0,
+  };
+}
+
+// ============ SPAWN ============
+function spawnMyUnit(idx) {
+  const u = eraData().units[idx];
+  if (!u) return;
+  if (gold < u.cost) { showNotif('金币不足!'); return; }
+  gold -= u.cost;
+  myUnits.push(createUnit(u, 'my'));
+}
+
+function spawnEnemyUnit() {
+  const eu = eraData().units;
+  const idx = Math.floor(Math.random() * eu.length);
+  const u = eu[idx];
+  enemyUnits.push(createUnit(u, 'enemy'));
+}
+
+// ============ TURRET BUILD ============
+function buildTower() {
+  if (towerLevel >= 5) { showNotif('已达最大炮台数!'); return; }
+  if (gold < towerCost) { showNotif('金币不足!'); return; }
+  gold -= towerCost;
+  towerLevel++;
+  const td = turretData();
+  const spacing = (LANE_Y - 40) / 6;
+  const yPos = 40 + spacing * towerLevel;
+  turrets.push({
+    x: BASE_X_MY + 30, y: yPos,
+    ...td,
+    atkTimer: 0, level: towerLevel
+  });
+  towerCost = Math.floor(towerCost * 1.6);
+  showNotif(`炮台建造完成! (${towerLevel}/5)`);
+}
+
+// ============ ERA UPGRADE ============
+function upgradeEra() {
+  if (era >= ERAS.length - 1) { showNotif('已达最高时代!'); return; }
+  const cost = eraUpgradeCost();
+  if (gold < cost) { showNotif('金币不足!'); return; }
+  gold -= cost;
+  era++;
+  showNotif(`进化到 ${ERAS[era].name}!`);
+  rebuildUI();
+}
+
+// ============ UPDATE UI ============
+function rebuildUI() {
+  const btnRow = document.getElementById('btnRow');
+  btnRow.innerHTML = '';
+  const units = eraData().units;
+  units.forEach((u, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn' + (i === selectedUnit ? ' active' : '');
+    btn.innerHTML = `${u.icon} ${u.name}<span class="cost">💰${u.cost}</span><span class="key">[${i+1}]</span>`;
+    btn.onclick = () => { selectedUnit = i; rebuildUI(); };
+    btnRow.appendChild(btn);
+  });
+  document.getElementById('eraDisplay').textContent = `${eraData().icon} ${eraData().name}`;
+  document.getElementById('eraCost').textContent = era < ERAS.length-1 ? `💰${eraUpgradeCost()}` : 'MAX';
+  document.getElementById('eraBtn').disabled = era >= ERAS.length-1;
+  document.getElementById('towerCost').textContent = towerLevel < 5 ? `💰${towerCost}` : 'MAX';
+  document.getElementById('towerBtn').disabled = towerLevel >= 5;
+}
+
+// ============ DRAWING ============
+function drawBase(x, hp, maxHp, isEnemy) {
+  const ratio = hp / maxHp;
+  const bw = 40, bh = 60;
+  const bx = isEnemy ? x - bw/2 : x - bw/2;
+  const by = LANE_Y - bh/2;
+
+  // base body
+  ctx.fillStyle = isEnemy ? '#cc3333' : '#3366cc';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = isEnemy ? '#ff6666' : '#6699ff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx, by, bw, bh);
+
+  // flag
+  ctx.fillStyle = isEnemy ? '#ff4444' : '#4488ff';
+  ctx.fillRect(x-2, by-25, 4, 25);
+  ctx.fillRect(x+2, by-25, 18, 12);
+
+  // hp bar
+  const hpW = 50;
+  ctx.fillStyle = '#333';
+  ctx.fillRect(x - hpW/2, by - 12, hpW, 8);
+  ctx.fillStyle = ratio > 0.5 ? '#44cc44' : ratio > 0.25 ? '#cccc44' : '#cc4444';
+  ctx.fillRect(x - hpW/2, by - 12, hpW * ratio, 8);
+  ctx.strokeStyle = '#666';
+  ctx.strokeRect(x - hpW/2, by - 12, hpW, 8);
+}
+
+function drawUnit(u) {
+  if (u.state === 'die') {
+    ctx.globalAlpha = Math.max(0, 1 - u.dieTimer);
+  }
+
+  const sz = u.size || 18;
+
+  // body circle
+  ctx.fillStyle = u.team === 'my' ? '#4488ff' : '#ff4444';
+  ctx.beginPath();
+  ctx.arc(u.x, LANE_Y, sz/2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = u.team === 'my' ? '#88bbff' : '#ff8888';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // icon
+  ctx.font = `${sz}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff';
+  ctx.fillText(u.icon, u.x, LANE_Y);
+
+  // hp bar
+  if (u.hp < u.maxHp && u.state !== 'die') {
+    const hpW = sz * 1.5;
+    const ratio = u.hp / u.maxHp;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(u.x - hpW/2, LANE_Y - sz/2 - 10, hpW, 5);
+    ctx.fillStyle = ratio > 0.5 ? '#44cc44' : ratio > 0.25 ? '#cccc44' : '#cc4444';
+    ctx.fillRect(u.x - hpW/2, LANE_Y - sz/2 - 10, hpW * ratio, 5);
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+function drawTurret(t) {
+  const td = turretData();
+  // base
+  ctx.fillStyle = t.color;
+  ctx.fillRect(t.x - 12, t.y - 12, 24, 24);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(t.x - 12, t.y - 12, 24, 24);
+  // icon
+  ctx.font = '16px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(t.icon, t.x, t.y);
+  // range indicator (subtle)
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.beginPath();
+  ctx.arc(t.x, t.y, t.range, 0, Math.PI*2);
+  ctx.stroke();
+}
+
+function drawProjectile(p) {
+  ctx.fillStyle = p.color;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+  ctx.fill();
+  // trail
+  ctx.strokeStyle = p.color;
+  ctx.globalAlpha = 0.3;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(p.x - p.vx*3, p.y - p.vy*3);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawLane() {
+  // main lane
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([10, 10]);
+  ctx.beginPath();
+  ctx.moveTo(BASE_X_MY + 40, LANE_Y);
+  ctx.lineTo(baseXEnemy() - 40, LANE_Y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ground decorations
+  for (let x = 100; x < W - 100; x += 80) {
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(x, LANE_Y + 25 + Math.sin(x*0.1)*5, 30, 3);
+  }
+}
+
+// ============ COMBAT LOGIC ============
+function findTarget(unit, enemies) {
+  let closest = null, minDist = Infinity;
+  for (const e of enemies) {
+    if (e.state === 'die') continue;
+    const d = Math.abs(e.x - unit.x);
+    if (d < minDist) { minDist = d; closest = e; }
+  }
+  return { target: closest, dist: minDist };
+}
+
+function updateUnit(u, enemies, dt) {
+  if (u.state === 'die') {
+    u.dieTimer += dt;
+    return u.dieTimer < 0.5;
+  }
+
+  const { target, dist } = findTarget(u, enemies);
+
+  // Check if reached enemy base
+  const atBase = u.team === 'my'
+    ? u.x >= baseXEnemy() - 50
+    : u.x <= BASE_X_MY + 50;
+
+  if (atBase && !target) {
+    // Attack base
+    u.state = 'attack';
+    u.atkTimer += dt;
+    if (u.atkTimer >= u.atkCooldown) {
+      u.atkTimer = 0;
+      if (u.team === 'my') {
+        enemyBaseHp = Math.max(0, enemyBaseHp - u.atk);
+        addParticle(baseXEnemy(), LANE_Y, '#ff4444', 3);
+      } else {
+        myBaseHp = Math.max(0, myBaseHp - u.atk);
+        addParticle(BASE_X_MY, LANE_Y, '#ff4444', 3);
+      }
+    }
+    return true;
+  }
+
+  if (target && dist <= u.range) {
+    // Attack enemy
+    u.state = 'attack';
+    u.atkTimer += dt;
+    if (u.atkTimer >= u.atkCooldown) {
+      u.atkTimer = 0;
+      target.hp -= u.atk;
+      addParticle(target.x, LANE_Y, '#ffaa00', 3);
+
+      // Ranged attack visual
+      if (u.range > 30) {
+        const dx = target.x - u.x;
+        projectiles.push({
+          x: u.x, y: LANE_Y,
+          vx: dx * 3, vy: 0,
+          targetX: target.x, targetY: LANE_Y,
+          color: u.team === 'my' ? '#88bbff' : '#ff8888',
+          life: 0.2
+        });
+      }
+
+      if (target.hp <= 0) {
+        target.state = 'die';
+        target.dieTimer = 0;
+        addParticle(target.x, LANE_Y, '#ff0000', 8);
+        // Reward gold for kills
+        if (target.team === 'enemy') {
+          gold += Math.floor(target.maxHp * 0.15);
+          kills++;
+        }
+      }
+    }
+  } else {
+    // Move - smooth linear movement
+    u.state = 'move';
+    const dir = u.team === 'my' ? 1 : -1;
+    u.x += dir * u.spd * 60 * dt; // smooth px/sec movement
+  }
+
+  return true;
+}
+
+// ============ TURRET AI ============
+function updateTurret(t, dt) {
+  t.atkTimer += dt;
+  if (t.atkTimer < 1.0 / t.spd) return;
+  t.atkTimer = 0;
+
+  // Find closest enemy in range
+  let closest = null, minDist = Infinity;
+  for (const e of enemyUnits) {
+    if (e.state === 'die') continue;
+    const d = Math.hypot(e.x - t.x, LANE_Y - t.y);
+    if (d <= t.range && d < minDist) { minDist = d; closest = e; }
+  }
+  if (!closest) return;
+
+  closest.hp -= t.atk;
+  addParticle(closest.x, LANE_Y, '#ffaa00', 3);
+  projectiles.push({
+    x: t.x, y: t.y,
+    vx: (closest.x - t.x) * 5, vy: (LANE_Y - t.y) * 5,
+    targetX: closest.x, targetY: LANE_Y,
+    color: '#ffcc00', life: 0.15
+  });
+
+  if (closest.hp <= 0) {
+    closest.state = 'die';
+    closest.dieTimer = 0;
+    addParticle(closest.x, LANE_Y, '#ff0000', 8);
+    gold += Math.floor(closest.maxHp * 0.15);
+    kills++;
+  }
+}
+
+// ============ UPDATE PROJECTILES ============
+function updateProjectiles(dt) {
+  projectiles = projectiles.filter(p => {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+    return p.life > 0;
+  });
+}
+
+function updateParticles(dt) {
+  particles = particles.filter(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= dt;
+    p.r *= 0.96;
+    return p.life > 0;
+  });
+}
+
+// ============ ENEMY SPAWN ============
+let enemySpawnTimer = 0;
+function getEnemySpawnInterval() {
+  return 3.5 - era * 0.15; // slower base spawn, scales with era
+}
+
+// ============ MAIN LOOP ============
+function gameLoop(timestamp) {
+  if (gameOverFlag) return;
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+
+  // Enemy spawn
+  enemySpawnTimer += dt;
+  if (enemySpawnTimer >= getEnemySpawnInterval()) {
+    enemySpawnTimer = 0;
+    spawnEnemyUnit();
+  }
+
+  // Update units
+  myUnits = myUnits.filter(u => updateUnit(u, enemyUnits, dt));
+  enemyUnits = enemyUnits.filter(u => updateUnit(u, myUnits, dt));
+
+  // Update turrets
+  turrets.forEach(t => updateTurret(t, dt));
+
+  // Update projectiles & particles
+  updateProjectiles(dt);
+  updateParticles(dt);
+
+  // Check game over
+  if (myBaseHp <= 0) { endGame(false); return; }
+  if (enemyBaseHp <= 0) { endGame(true); return; }
+
+  // Passive gold
+  gold += 2 * dt;
+
+  // Draw
+  draw();
+
+  // Update UI
+  document.getElementById('goldDisplay').textContent = `💰 ${Math.floor(gold)}`;
+  document.getElementById('myHpFill').style.width = `${(myBaseHp/maxBaseHp)*100}%`;
+  document.getElementById('enemyHpFill').style.width = `${(enemyBaseHp/maxBaseHp)*100}%`;
+
+  requestAnimationFrame(gameLoop);
+}
+
+function draw() {
+  // Background
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Sky gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, LANE_Y - 40);
+  grad.addColorStop(0, '#0a0a1e');
+  grad.addColorStop(1, '#1a1a3e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, LANE_Y - 40);
+
+  // Ground
+  ctx.fillStyle = '#1a2a1a';
+  ctx.fillRect(0, LANE_Y + 30, W, H - LANE_Y - 30);
+
+  drawLane();
+
+  // Draw turrets
+  turrets.forEach(drawTurret);
+
+  // Draw bases
+  drawBase(BASE_X_MY, myBaseHp, maxBaseHp, false);
+  drawBase(baseXEnemy(), enemyBaseHp, maxBaseHp, true);
+
+  // Draw units (back to front by x)
+  const allUnits = [...myUnits, ...enemyUnits].sort((a,b) => a.y - b.y);
+  allUnits.forEach(drawUnit);
+
+  // Draw projectiles
+  projectiles.forEach(drawProjectile);
+
+  // Draw particles
+  drawParticles();
+
+  // Kill counter
+  ctx.fillStyle = '#aaa';
+  ctx.font = '14px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`击杀: ${kills}`, 10, 20);
+}
+
+function endGame(won) {
+  gameOverFlag = true;
+  const el = document.getElementById('gameOver');
+  el.style.display = 'flex';
+  document.getElementById('goText').textContent = won ? '🎉 胜利!' : '💀 失败...';
+}
+
+function restart() {
+  document.getElementById('gameOver').style.display = 'none';
+  initState();
+  rebuildUI();
+  lastTime = performance.now();
+  requestAnimationFrame(gameLoop);
+}
+
+// ============ CONTROLS ============
+document.addEventListener('keydown', e => {
+  if (gameOverFlag) return;
+  const key = e.key;
+  const units = eraData().units;
+  if (key >= '1' && key <= '9') {
+    const idx = parseInt(key) - 1;
+    if (idx < units.length) {
+      selectedUnit = idx;
+      spawnMyUnit(idx);
+      rebuildUI();
+    }
+  }
+});
+
+canvas.addEventListener('click', e => {
+  if (gameOverFlag) return;
+  spawnMyUnit(selectedUnit);
+});
+
+// ============ START ============
+rebuildUI();
+lastTime = performance.now();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
