@@ -121,50 +121,50 @@ window.addEventListener('resize', resize);
 const ERAS = [
   { name:'石器时代', icon:'🏛', color:'#8B7355',
     units:[
-      {name:'棍棒兵',icon:'🪵',hp:30,atk:5,spd:0.6,cost:15,range:20,size:18},
-      {name:'投石手',icon:'🪨',hp:20,atk:8,spd:0.5,cost:25,range:80,size:16},
-      {name:'野兽骑',icon:'🐗',hp:50,atk:10,spd:0.8,cost:40,range:22,size:22},
+      {name:'棍棒兵',icon:'🪵',hp:30,atk:5,spd:40,cost:15,range:20,size:18},
+      {name:'投石手',icon:'🪨',hp:20,atk:8,spd:32,cost:25,range:80,size:16},
+      {name:'野兽骑',icon:'🐗',hp:50,atk:10,spd:55,cost:40,range:22,size:22},
     ]},
   { name:'青铜时代', icon:'⚔️', color:'#CD7F32',
     units:[
-      {name:'铜矛兵',icon:'🔱',hp:50,atk:10,spd:0.65,cost:25,range:25,size:18},
-      {name:'弓箭手',icon:'🏹',hp:30,atk:15,spd:0.55,cost:35,range:100,size:16},
-      {name:'战车',icon:'🐎',hp:80,atk:18,spd:0.9,cost:55,range:28,size:24},
+      {name:'铜矛兵',icon:'🔱',hp:50,atk:10,spd:42,cost:25,range:25,size:18},
+      {name:'弓箭手',icon:'🏹',hp:30,atk:15,spd:35,cost:35,range:100,size:16},
+      {name:'战车',icon:'🐎',hp:80,atk:18,spd:60,cost:55,range:28,size:24},
     ]},
   { name:'铁器时代', icon:'🛡', color:'#708090',
     units:[
-      {name:'铁甲兵',icon:'🛡',hp:80,atk:15,spd:0.6,cost:35,range:22,size:20},
-      {name:'弩手',icon:'🏹',hp:40,atk:22,spd:0.5,cost:45,range:120,size:17},
-      {name:'骑兵',icon:'🐴',hp:120,atk:25,spd:1.0,cost:70,range:30,size:26},
-      {name:'攻城车',icon:'🏗',hp:150,atk:35,spd:0.35,cost:90,range:40,size:30},
+      {name:'铁甲兵',icon:'🛡',hp:80,atk:15,spd:38,cost:35,range:22,size:20},
+      {name:'弩手',icon:'🏹',hp:40,atk:22,spd:30,cost:45,range:120,size:17},
+      {name:'骑兵',icon:'🐴',hp:120,atk:25,spd:65,cost:70,range:30,size:26},
+      {name:'攻城车',icon:'🏗',hp:150,atk:35,spd:22,cost:90,range:40,size:30},
     ]},
   { name:'中世纪', icon:'🏰', color:'#4a6fa5',
     units:[
-      {name:'骑士',icon:'⚔️',hp:120,atk:25,spd:0.7,cost:45,range:28,size:22},
-      {name:'火枪手',icon:'🔫',hp:50,atk:35,spd:0.5,cost:55,range:140,size:18},
-      {name:'重骑兵',icon:'🐎',hp:180,atk:40,spd:0.85,cost:80,range:32,size:28},
-      {name:'投石机',icon:'🪨',hp:100,atk:50,spd:0.3,cost:100,range:160,size:32},
+      {name:'骑士',icon:'⚔️',hp:120,atk:25,spd:45,cost:45,range:28,size:22},
+      {name:'火枪手',icon:'🔫',hp:50,atk:35,spd:32,cost:55,range:140,size:18},
+      {name:'重骑兵',icon:'🐎',hp:180,atk:40,spd:55,cost:80,range:32,size:28},
+      {name:'投石机',icon:'🪨',hp:100,atk:50,spd:20,cost:100,range:160,size:32},
     ]},
   { name:'火药时代', icon:'💣', color:'#8B4513',
     units:[
-      {name:'火枪兵',icon:'🔫',hp:70,atk:40,spd:0.55,cost:50,range:140,size:18},
-      {name:'炮兵',icon:'💣',hp:60,atk:60,spd:0.35,cost:70,range:180,size:24},
-      {name:'龙骑兵',icon:'🐉',hp:200,atk:50,spd:0.8,cost:90,range:35,size:28},
-      {name:'战列舰',icon:'🚢',hp:300,atk:80,spd:0.25,cost:130,range:200,size:36},
+      {name:'火枪兵',icon:'🔫',hp:70,atk:40,spd:35,cost:50,range:140,size:18},
+      {name:'炮兵',icon:'💣',hp:60,atk:60,spd:22,cost:70,range:180,size:24},
+      {name:'龙骑兵',icon:'🐉',hp:200,atk:50,spd:52,cost:90,range:35,size:28},
+      {name:'战列舰',icon:'🚢',hp:300,atk:80,spd:16,cost:130,range:200,size:36},
     ]},
   { name:'现代战争', icon:'🚁', color:'#2F4F4F',
     units:[
-      {name:'步兵',icon:'🔫',hp:100,atk:55,spd:0.6,cost:55,range:150,size:18},
-      {name:'坦克',icon:'🛡',hp:350,atk:80,spd:0.5,cost:100,range:170,size:32},
-      {name:'直升机',icon:'🚁',hp:200,atk:70,spd:1.2,cost:120,range:190,size:28},
-      {name:'导弹车',icon:'🚀',hp:150,atk:120,spd:0.3,cost:150,range:220,size:30},
+      {name:'步兵',icon:'🔫',hp:100,atk:55,spd:38,cost:55,range:150,size:18},
+      {name:'坦克',icon:'🛡',hp:350,atk:80,spd:30,cost:100,range:170,size:32},
+      {name:'直升机',icon:'🚁',hp:200,atk:70,spd:75,cost:120,range:190,size:28},
+      {name:'导弹车',icon:'🚀',hp:150,atk:120,spd:20,cost:150,range:220,size:30},
     ]},
   { name:'未来科技', icon:'🤖', color:'#00CED1',
     units:[
-      {name:'机甲兵',icon:'🤖',hp:200,atk:80,spd:0.7,cost:80,range:160,size:24},
-      {name:'激光炮',icon:'⚡',hp:120,atk:150,spd:0.4,cost:130,range:250,size:28},
-      {name:'飞碟',icon:'🛸',hp:300,atk:100,spd:1.4,cost:160,range:200,size:30},
-      {name:'歼星舰',icon:'🌟',hp:500,atk:200,spd:0.2,cost:250,range:280,size:40},
+      {name:'机甲兵',icon:'🤖',hp:200,atk:80,spd:45,cost:80,range:160,size:24},
+      {name:'激光炮',icon:'⚡',hp:120,atk:150,spd:25,cost:130,range:250,size:28},
+      {name:'飞碟',icon:'🛸',hp:300,atk:100,spd:85,cost:160,range:200,size:30},
+      {name:'歼星舰',icon:'🌟',hp:500,atk:200,spd:14,cost:250,range:280,size:40},
     ]},
 ];
 
@@ -508,7 +508,7 @@ function updateUnit(u, enemies, dt) {
     // Move - smooth linear movement
     u.state = 'move';
     const dir = u.team === 'my' ? 1 : -1;
-    u.x += dir * u.spd * 60 * dt; // smooth px/sec movement
+    u.x += dir * u.spd * dt; // smooth px/sec movement
   }
 
   return true;
