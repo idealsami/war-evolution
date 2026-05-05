@@ -309,7 +309,7 @@ function buildTower() {
   towerLevel++;
   const td = turretData();
   const baseTop = LANE_Y - 30;
-  const dynamicRange = (W - 120) * 0.15;
+  const dynamicRange = (W - 120) * 0.20;
   const yPos = baseTop - 15 - (towerLevel - 1) * 35;
   turrets.push({
     x: BASE_X_MY + 50, y: yPos,
@@ -325,7 +325,7 @@ function buildEnemyTower() {
   if (enemyTurrets.length >= Math.min(era + 1, 5)) return;
   const td = TURRETS[Math.min(era, TURRETS.length - 1)];
   const baseTop = LANE_Y - 30;
-  const dynamicRange = (W - 120) * 0.15;
+  const dynamicRange = (W - 120) * 0.20;
   const idx = enemyTurrets.length;
   const yPos = baseTop - 15 - idx * 35;
   enemyTurrets.push({
@@ -454,14 +454,27 @@ function drawUnit(u) {
 }
 
 function drawTurret(t) {
-  // Draw range rectangle (subtle)
-  ctx.strokeStyle = t.team === 'red' ? 'rgba(255,100,100,0.12)' : 'rgba(255,200,0,0.12)';
-  ctx.fillStyle = t.team === 'red' ? 'rgba(255,100,100,0.03)' : 'rgba(255,200,0,0.03)';
+  // Draw attack zone on the lane (horizontal band)
+  ctx.strokeStyle = t.team === 'red' ? 'rgba(255,100,100,0.15)' : 'rgba(255,200,0,0.15)';
+  ctx.fillStyle = t.team === 'red' ? 'rgba(255,100,100,0.04)' : 'rgba(255,200,0,0.04)';
   ctx.lineWidth = 1;
+  ctx.setLineDash([6, 4]);
   ctx.beginPath();
-  ctx.rect(t.x - t.range, t.y - 20, t.range * 2, 40); // Horizontal range rectangle
+  // Draw horizontal attack zone on the lane path
+  const zoneLeft = Math.max(t.x - t.range, BASE_X_MY + 40);
+  const zoneRight = Math.min(t.x + t.range, baseXEnemy() - 40);
+  ctx.rect(zoneLeft, LANE_Y - 16, zoneRight - zoneLeft, 32);
   ctx.fill();
   ctx.stroke();
+  ctx.setLineDash([]);
+  // Dashed line from turret to zone
+  ctx.strokeStyle = t.team === 'red' ? 'rgba(255,100,100,0.2)' : 'rgba(255,200,0,0.2)';
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(t.x, t.y + 18);
+  ctx.lineTo(t.x, LANE_Y - 16);
+  ctx.stroke();
+  ctx.setLineDash([]);
 
   // Turret body
   ctx.fillStyle = t.color;
