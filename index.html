@@ -557,7 +557,7 @@ function updateUnit(u, enemies, dt) {
         target.dieTimer = 0;
         addParticle(target.x, LANE_Y, '#ff0000', 8);
         if (target.team === 'enemy') {
-          gold += Math.floor(target.maxHp * 0.15);
+          gold += Math.floor(target.maxHp * 0.3);
           // XP from kills - scaled by enemy maxHp
           const xpGain = Math.max(3, Math.floor(target.maxHp * 0.08));
           xp += xpGain;
@@ -601,7 +601,7 @@ function updateTurret(t, dt) {
     closest.state = 'die';
     closest.dieTimer = 0;
     addParticle(closest.x, LANE_Y, '#ff0000', 8);
-    gold += Math.floor(closest.maxHp * 0.15);
+    gold += Math.floor(closest.maxHp * 0.3);
     const xpGain = Math.max(3, Math.floor(closest.maxHp * 0.08));
     xp += xpGain;
     kills++;
@@ -663,7 +663,7 @@ function gameLoop(timestamp) {
   if (enemyBaseHp <= 0) { endGame(true); return; }
 
   // Passive gold
-  gold += 2 * dt;
+  gold += 5 * dt;
 
   // Draw
   draw();
